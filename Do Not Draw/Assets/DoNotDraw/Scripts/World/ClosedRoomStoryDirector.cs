@@ -409,13 +409,16 @@ namespace DoNotDraw.World
             }
         }
 
-        private void RevealLightSwitch()
-        {
-            StopRearWarning();
-            lightSwitchInteractionRequested = false;
-            lightSwitch?.SetInteractionEnabled(false);
-            QueueBlackoutTransition(
-                () => lightSwitchRoot?.SetActive(true),
+    private void RevealLightSwitch()
+    {
+        StopRearWarning();
+        // The switch becoming visible is the authoritative availability boundary.
+        // The later enable signal remains idempotent, so a missed/reordered cue
+        // cannot leave a visible switch permanently non-interactable.
+        lightSwitchInteractionRequested = true;
+        lightSwitch?.SetInteractionEnabled(false);
+        QueueBlackoutTransition(
+            () => lightSwitchRoot?.SetActive(true),
                 RefreshLightSwitchInteraction);
         }
 
