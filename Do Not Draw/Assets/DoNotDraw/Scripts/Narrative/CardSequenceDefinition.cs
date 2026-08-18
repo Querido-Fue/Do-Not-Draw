@@ -12,6 +12,26 @@ namespace DoNotDraw.Narrative
     }
 
     [Serializable]
+    public sealed class CardSequenceCardVariant
+    {
+        [SerializeField] private CardDefinition card;
+        [SerializeField] private StoryConditionGroup conditions = new StoryConditionGroup();
+
+        public CardDefinition Card => card;
+        public StoryConditionGroup Conditions => conditions;
+
+        public bool Matches(StoryBlackboard blackboard)
+        {
+            return card != null && (conditions == null || conditions.Evaluate(blackboard));
+        }
+
+        internal void Normalize()
+        {
+            conditions ??= new StoryConditionGroup();
+        }
+    }
+
+    [Serializable]
     public sealed class CardSequenceTransition
     {
         [SerializeField] private bool finishSequence;
@@ -37,6 +57,7 @@ namespace DoNotDraw.Narrative
         [SerializeField] private string editorLabel;
         [SerializeField] private CardSequenceStepMode mode = CardSequenceStepMode.PlayerDraw;
         [SerializeField] private CardDefinition card;
+        [SerializeField] private List<CardSequenceCardVariant> cardVariants = new List<CardSequenceCardVariant>();
 
         [Header("Availability")]
         [SerializeField, Min(0f)] private float readyDelay;
@@ -45,6 +66,7 @@ namespace DoNotDraw.Narrative
         [Header("Completion")]
         [SerializeField, Min(0f)] private float completionDelay;
         [SerializeField] private StoryConditionGroup completionConditions = new StoryConditionGroup();
+        [SerializeField] private bool allowExternalAdvance;
 
         [Header("Signals")]
         [SerializeField] private List<StorySignal> enterSignals = new List<StorySignal>();
@@ -59,10 +81,14 @@ namespace DoNotDraw.Narrative
         public string EditorLabel => string.IsNullOrWhiteSpace(editorLabel) ? stepId : editorLabel;
         public CardSequenceStepMode Mode => mode;
         public CardDefinition Card => card;
+        public IReadOnlyList<CardSequenceCardVariant> CardVariants => cardVariants != null
+            ? (IReadOnlyList<CardSequenceCardVariant>)cardVariants
+            : Array.Empty<CardSequenceCardVariant>();
         public float ReadyDelay => readyDelay;
         public StoryConditionGroup DrawAvailability => drawAvailability;
         public float CompletionDelay => completionDelay;
         public StoryConditionGroup CompletionConditions => completionConditions;
+        public bool AllowExternalAdvance => allowExternalAdvance;
         public IReadOnlyList<StorySignal> EnterSignals => enterSignals != null
             ? (IReadOnlyList<StorySignal>)enterSignals
             : Array.Empty<StorySignal>();
@@ -80,12 +106,26 @@ namespace DoNotDraw.Narrative
             : Array.Empty<CardSequenceTransition>();
         public bool DrawsCard => mode != CardSequenceStepMode.EventOnly;
 
+        public CardDefinition ResolveCard(StoryBlackboard blackboard)
+        {
+            foreach (CardSequenceCardVariant variant in CardVariants)
+            {
+                if (variant != null && variant.Matches(blackboard))
+                {
+                    return variant.Card;
+                }
+            }
+
+            return card;
+        }
+
         internal void Normalize()
         {
             stepId = string.IsNullOrWhiteSpace(stepId) ? string.Empty : stepId.Trim();
             editorLabel = editorLabel?.Trim() ?? string.Empty;
             readyDelay = Mathf.Max(0f, readyDelay);
             completionDelay = Mathf.Max(0f, completionDelay);
+            cardVariants ??= new List<CardSequenceCardVariant>();
             drawAvailability ??= new StoryConditionGroup();
             completionConditions ??= new StoryConditionGroup();
             enterSignals ??= new List<StorySignal>();
@@ -93,6 +133,11 @@ namespace DoNotDraw.Narrative
             revealSignals ??= new List<StorySignal>();
             completeSignals ??= new List<StorySignal>();
             transitions ??= new List<CardSequenceTransition>();
+
+            foreach (CardSequenceCardVariant variant in cardVariants)
+            {
+                variant?.Normalize();
+            }
 
             foreach (CardSequenceTransition transition in transitions)
             {

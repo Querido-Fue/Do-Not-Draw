@@ -75,18 +75,30 @@ namespace DoNotDraw.Narrative
             UpdateDeckVisual();
         }
 
-        public bool PresentCard(CardDefinition definition, int drawIndex, Action<GameObject> completed)
+        public bool PresentCard(
+            CardDefinition definition,
+            int drawIndex,
+            Action<GameObject> revealed,
+            Action presentationFinished)
         {
             if (IsPresenting || cardTemplate == null || drawnCardParent == null || displayAnchor == null || deckTop == null)
             {
                 return false;
             }
 
-            StartCoroutine(PresentCardRoutine(definition, Mathf.Max(0, drawIndex), completed));
+            StartCoroutine(PresentCardRoutine(
+                definition,
+                Mathf.Max(0, drawIndex),
+                revealed,
+                presentationFinished));
             return true;
         }
 
-        private IEnumerator PresentCardRoutine(CardDefinition definition, int drawIndex, Action<GameObject> completed)
+        private IEnumerator PresentCardRoutine(
+            CardDefinition definition,
+            int drawIndex,
+            Action<GameObject> revealed,
+            Action presentationFinished)
         {
             IsPresenting = true;
 
@@ -137,9 +149,22 @@ namespace DoNotDraw.Narrative
             PlaySound(definition != null && definition.LandingSoundOverride != null
                 ? definition.LandingSoundOverride
                 : landingSound, landingVolume);
+            revealed?.Invoke(card);
+
+            AudioClip voiceClip = definition?.VoiceClip;
+            if (voiceClip != null)
+            {
+                if (definition.VoiceDelay > 0f)
+                {
+                    yield return new WaitForSeconds(definition.VoiceDelay);
+                }
+
+                PlaySound(voiceClip, definition.VoiceVolume);
+                yield return new WaitForSeconds(voiceClip.length);
+            }
 
             IsPresenting = false;
-            completed?.Invoke(card);
+            presentationFinished?.Invoke();
         }
 
         private void ApplyDefinition(GameObject card, CardDefinition definition, int drawIndex)

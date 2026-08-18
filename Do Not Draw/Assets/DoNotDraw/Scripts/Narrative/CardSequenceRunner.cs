@@ -29,6 +29,11 @@ namespace DoNotDraw.Narrative
         private int drawCount;
         private float availabilityNotBefore;
         private float completionNotBefore;
+        private CardDefinition activeCard;
+        private int currentStepDrawIndex = -1;
+        private bool externalAdvanceQueued;
+        private int externalAdvanceStepIndex = -1;
+        private bool presentationLocked;
 
         public event Action<CardSequenceDefinition> SequenceStarted;
         public event Action<CardSequenceState> StateChanged;
@@ -44,9 +49,33 @@ namespace DoNotDraw.Narrative
         public int CurrentStepIndex => currentStepIndex;
         public int DrawCount => drawCount;
         public CardSequenceStep CurrentStep => sequence != null ? sequence.GetStep(currentStepIndex) : null;
+        public CardDefinition CurrentCard => activeCard != null
+            ? activeCard
+            : CurrentStep?.ResolveCard(blackboard);
         public bool CanPlayerDraw => State == CardSequenceState.ReadyForActivation
-            && CurrentStep?.Mode == CardSequenceStepMode.PlayerDraw;
+            && CurrentStep?.Mode == CardSequenceStepMode.PlayerDraw
+            && !presentationLocked
+            && presenter != null
+            && !presenter.IsPresenting;
+        public bool CanExternallyAdvance => CurrentStep?.AllowExternalAdvance == true
+            && State is CardSequenceState.WaitingForAvailability
+                or CardSequenceState.ReadyForActivation
+                or CardSequenceState.WaitingForCompletion;
         public bool IsComplete => State == CardSequenceState.Completed;
+
+        public void Configure(
+            CardSequenceDefinition sequenceDefinition,
+            StoryBlackboard storyBlackboard,
+            CardDeckPresenter deckPresenter,
+            bool shouldPlayOnStart,
+            bool shouldResetBlackboardOnStart)
+        {
+            sequence = sequenceDefinition;
+            blackboard = storyBlackboard != null ? storyBlackboard : GetComponent<StoryBlackboard>();
+            presenter = deckPresenter != null ? deckPresenter : GetComponent<CardDeckPresenter>();
+            playOnStart = shouldPlayOnStart;
+            resetBlackboardOnStart = shouldResetBlackboardOnStart;
+        }
 
         private void Awake()
         {
@@ -64,6 +93,11 @@ namespace DoNotDraw.Narrative
 
         private void Update()
         {
+            if (externalAdvanceQueued && State != CardSequenceState.Activating)
+            {
+                TryProcessExternalAdvance();
+            }
+
             switch (State)
             {
                 case CardSequenceState.WaitingForAvailability:
@@ -73,7 +107,11 @@ namespace DoNotDraw.Narrative
                 case CardSequenceState.ReadyForActivation:
                     if (CurrentStep != null && CurrentStep.Mode != CardSequenceStepMode.PlayerDraw)
                     {
-                        ActivateCurrentStep();
+                        if (CurrentStep.Mode == CardSequenceStepMode.EventOnly
+                            || (!presentationLocked && presenter != null && !presenter.IsPresenting))
+                        {
+                            ActivateCurrentStep();
+                        }
                     }
                     break;
 
@@ -109,6 +147,11 @@ namespace DoNotDraw.Narrative
 
             currentStepIndex = -1;
             drawCount = 0;
+            activeCard = null;
+            currentStepDrawIndex = -1;
+            externalAdvanceQueued = false;
+            externalAdvanceStepIndex = -1;
+            presentationLocked = false;
             presenter?.ResetPresentation(sequence.VisualDeckSize);
             SequenceStarted?.Invoke(sequence);
             EnterStep(0);
@@ -122,12 +165,41 @@ namespace DoNotDraw.Narrative
         public void StopSequence()
         {
             currentStepIndex = -1;
+            presentationLocked = false;
             SetState(CardSequenceState.Stopped);
         }
 
         public bool RequestPlayerDraw()
         {
             return CanPlayerDraw && ActivateCurrentStep();
+        }
+
+        public bool RequestExternalAdvance()
+        {
+            if (!CanExternallyAdvance)
+            {
+                return false;
+            }
+
+            externalAdvanceQueued = true;
+            externalAdvanceStepIndex = currentStepIndex;
+            return true;
+        }
+
+        public bool SetPresenter(CardDeckPresenter nextPresenter, bool resetPresentation)
+        {
+            if (nextPresenter == null || State == CardSequenceState.Activating)
+            {
+                return false;
+            }
+
+            presenter = nextPresenter;
+            if (resetPresentation && sequence != null)
+            {
+                presenter.ResetPresentation(Mathf.Max(1, sequence.VisualDeckSize - drawCount));
+            }
+
+            return true;
         }
 
         public void DebugForceCompleteCurrentStep()
@@ -153,6 +225,10 @@ namespace DoNotDraw.Narrative
             }
 
             currentStepIndex = stepIndex;
+            activeCard = null;
+            currentStepDrawIndex = -1;
+            externalAdvanceQueued = false;
+            externalAdvanceStepIndex = -1;
             availabilityNotBefore = Time.time + step.ReadyDelay;
             SetState(CardSequenceState.WaitingForAvailability);
             StepEntered?.Invoke(step, stepIndex);
@@ -184,9 +260,16 @@ namespace DoNotDraw.Narrative
                 return false;
             }
 
+            if (step.DrawsCard && (presentationLocked || presenter == null || presenter.IsPresenting))
+            {
+                return false;
+            }
+
             SetState(CardSequenceState.Activating);
             int activationDrawIndex = step.DrawsCard ? drawCount : -1;
-            EmitSignals(step.ActivationSignals, StorySignalPhase.StepActivated, activationDrawIndex);
+            activeCard = step.DrawsCard ? step.ResolveCard(blackboard) : null;
+            currentStepDrawIndex = activationDrawIndex;
+            EmitSignals(step.ActivationSignals, StorySignalPhase.StepActivated, activationDrawIndex, activeCard);
 
             if (!step.DrawsCard)
             {
@@ -201,17 +284,36 @@ namespace DoNotDraw.Narrative
                 return false;
             }
 
-            int drawIndex = drawCount;
-            if (!presenter.PresentCard(step.Card, drawIndex, card => HandleStepRevealed(card, drawIndex)))
+            if (activeCard == null)
             {
+                Debug.LogError($"[CardSequenceRunner] Step '{step.StepId}' resolved to no card.", sequence);
+                SetState(CardSequenceState.Stopped);
+                return false;
+            }
+
+            int drawIndex = drawCount;
+            CardDefinition cardDefinition = activeCard;
+            presentationLocked = true;
+            if (!presenter.PresentCard(
+                    cardDefinition,
+                    drawIndex,
+                    card => HandleStepRevealed(card, drawIndex),
+                    HandlePresentationFinished))
+            {
+                presentationLocked = false;
                 Debug.LogError("[CardSequenceRunner] CardDeckPresenter rejected the draw request.", presenter);
                 SetState(CardSequenceState.Stopped);
                 return false;
             }
 
             drawCount++;
-            CardDrawStarted?.Invoke(step.Card, drawIndex);
+            CardDrawStarted?.Invoke(cardDefinition, drawIndex);
             return true;
+        }
+
+        private void HandlePresentationFinished()
+        {
+            presentationLocked = false;
         }
 
         private void HandleStepRevealed(GameObject cardObject, int drawIndex)
@@ -222,8 +324,8 @@ namespace DoNotDraw.Narrative
             }
 
             CardSequenceStep step = CurrentStep;
-            EmitSignals(step.RevealSignals, StorySignalPhase.CardRevealed, drawIndex);
-            CardRevealed?.Invoke(step.Card, cardObject, drawIndex);
+            EmitSignals(step.RevealSignals, StorySignalPhase.CardRevealed, drawIndex, activeCard);
+            CardRevealed?.Invoke(activeCard, cardObject, drawIndex);
             completionNotBefore = Time.time + step.CompletionDelay;
             SetState(CardSequenceState.WaitingForCompletion);
         }
@@ -254,7 +356,7 @@ namespace DoNotDraw.Narrative
             }
 
             int completedIndex = currentStepIndex;
-            EmitSignals(step.CompleteSignals, StorySignalPhase.StepCompleted, step.DrawsCard ? drawCount - 1 : -1);
+            EmitSignals(step.CompleteSignals, StorySignalPhase.StepCompleted, currentStepDrawIndex, activeCard);
             StepCompleted?.Invoke(step, completedIndex);
 
             int nextStepIndex = ResolveNextStepIndex(step, completedIndex);
@@ -299,18 +401,51 @@ namespace DoNotDraw.Narrative
 
         private void CompleteSequence()
         {
+            externalAdvanceQueued = false;
+            externalAdvanceStepIndex = -1;
+            presentationLocked = false;
             SetState(CardSequenceState.Completed);
             SequenceCompleted?.Invoke(sequence);
         }
 
-        private void EmitSignals(IReadOnlyList<StorySignal> signals, StorySignalPhase phase, int drawIndex)
+        private void TryProcessExternalAdvance()
+        {
+            if (externalAdvanceStepIndex != currentStepIndex || !CanExternallyAdvance)
+            {
+                externalAdvanceQueued = false;
+                externalAdvanceStepIndex = -1;
+                return;
+            }
+
+            CardSequenceStep step = CurrentStep;
+            if (step?.CompletionConditions != null && !step.CompletionConditions.Evaluate(blackboard))
+            {
+                return;
+            }
+
+            externalAdvanceQueued = false;
+            externalAdvanceStepIndex = -1;
+            CompleteCurrentStep();
+        }
+
+        private void EmitSignals(
+            IReadOnlyList<StorySignal> signals,
+            StorySignalPhase phase,
+            int drawIndex,
+            CardDefinition signalCard = null)
         {
             if (signals == null || signals.Count == 0)
             {
                 return;
             }
 
-            StorySignalContext context = new StorySignalContext(this, sequence, CurrentStep, phase, drawIndex);
+            StorySignalContext context = new StorySignalContext(
+                this,
+                sequence,
+                CurrentStep,
+                signalCard,
+                phase,
+                drawIndex);
             foreach (StorySignal signal in signals)
             {
                 signal?.Raise(context);

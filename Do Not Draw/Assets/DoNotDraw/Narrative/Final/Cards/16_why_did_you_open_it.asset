@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 88cd7f552e029ac4f9828867d32c5bfe, type: 3}
+  m_Name: 16_why_did_you_open_it
+  m_EditorClassIdentifier: Assembly-CSharp::DoNotDraw.Narrative.CardDefinition
+  stableId: final.card.why_did_you_open_it
+  displayName: WHY DID YOU OPEN IT?
+  faceText: WHY DID YOU OPEN IT?
+  faceAccentMaterial: {fileID: 2100000, guid: 9c1bc92ef35503245893d06d3fd174c0, type: 2}
+  faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}
+  drawSoundOverride: {fileID: 0}
+  landingSoundOverride: {fileID: 0}
+  voiceClip: {fileID: 8300000, guid: 5067e788c9e73c44785bd804f15644f1, type: 3}
+  voiceVolume: 0.82
+  voiceDelay: 0.16
+  tags:
+  - final
+  - flow-authority
+  - why_did_you_open_it

@@ -17,12 +17,14 @@ namespace DoNotDraw.Narrative
             CardSequenceRunner runner,
             CardSequenceDefinition sequence,
             CardSequenceStep step,
+            CardDefinition card,
             StorySignalPhase phase,
             int drawIndex)
         {
             Runner = runner;
             Sequence = sequence;
             Step = step;
+            Card = card;
             Phase = phase;
             DrawIndex = drawIndex;
         }
@@ -30,7 +32,7 @@ namespace DoNotDraw.Narrative
         public CardSequenceRunner Runner { get; }
         public CardSequenceDefinition Sequence { get; }
         public CardSequenceStep Step { get; }
-        public CardDefinition Card => Step?.Card;
+        public CardDefinition Card { get; }
         public StorySignalPhase Phase { get; }
         public int DrawIndex { get; }
         public GameObject Source => Runner != null ? Runner.gameObject : null;

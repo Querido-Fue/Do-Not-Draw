@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b0fc8ff39edc01a499d3dbb3640dfe07, type: 3}
+  m_Name: entered_second_room
+  m_EditorClassIdentifier: Assembly-CSharp::DoNotDraw.Narrative.StoryFact
+  stableId: final.fact.entered_second_room
+  description: 'Runtime state for final flow: entered_second_room.'
+  factType: 0
+  defaultBool: 0
+  defaultInt: 0
+  defaultFloat: 0
+  defaultString: 

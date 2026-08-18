@@ -106,9 +106,33 @@ namespace DoNotDraw.Narrative.Editor
                 if (step.DrawsCard)
                 {
                     cardStepCount++;
-                    if (step.Card == null)
+                    if (step.Card == null && step.CardVariants.Count == 0)
                     {
                         report.Errors.Add($"Sequence '{sequenceLabel}', step '{stepLabel}' draws a card but has no CardDefinition.");
+                    }
+
+                    for (int variantIndex = 0; variantIndex < step.CardVariants.Count; variantIndex++)
+                    {
+                        CardSequenceCardVariant variant = step.CardVariants[variantIndex];
+                        if (variant == null)
+                        {
+                            report.Errors.Add(
+                                $"Sequence '{sequenceLabel}', step '{stepLabel}' has a null card variant.");
+                            continue;
+                        }
+
+                        if (variant.Card == null)
+                        {
+                            report.Errors.Add(
+                                $"Sequence '{sequenceLabel}', step '{stepLabel}', variant {variantIndex} has no card.");
+                        }
+
+                        ValidateConditionGroup(
+                            variant.Conditions,
+                            sequenceLabel,
+                            stepLabel,
+                            $"card variant {variantIndex}",
+                            report);
                     }
                 }
                 else if (step.Card != null)
