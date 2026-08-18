@@ -84,10 +84,14 @@ namespace DoNotDraw.World
         [SerializeField] private GameObject doorCrackSilhouette;
         [SerializeField, Min(1f)] private float threatApproachDuration = 10f;
 
+        [Header("Screen Transitions")]
+        [SerializeField] private CanvasGroup screenFade;
+        [SerializeField, Min(0f)] private float blackoutChangeDelay = 0.16f;
+        [SerializeField, Min(0f)] private float blackoutPostChangeHold = 0.32f;
+
         [Header("Ending")]
         [SerializeField] private GameObject endingCorridor;
         [SerializeField] private GameObject endingWallMessage;
-        [SerializeField] private CanvasGroup screenFade;
         [SerializeField, Min(0f)] private float endingHold = 3.5f;
         [SerializeField, Min(0.1f)] private float endingFadeDuration = 2.2f;
 
@@ -130,8 +134,26 @@ namespace DoNotDraw.World
         private Vector3 windowSilhouetteScale = Vector3.one;
         private Vector3 doorSilhouetteScale = Vector3.one;
         private Coroutine lightRoutine;
+        private Coroutine blackoutRoutine;
         private Coroutine threatRoutine;
         private Coroutine silhouetteRoutine;
+        private readonly Queue<BlackoutTransitionRequest> blackoutTransitions =
+            new Queue<BlackoutTransitionRequest>();
+        private bool blackoutActive;
+        private bool ceilingLightWasEnabled;
+        private bool secondRoomLightWasEnabled;
+
+        private sealed class BlackoutTransitionRequest
+        {
+            public BlackoutTransitionRequest(Action duringBlackout, Action afterLightsReturn)
+            {
+                DuringBlackout = duringBlackout;
+                AfterLightsReturn = afterLightsReturn;
+            }
+
+            public Action DuringBlackout { get; }
+            public Action AfterLightsReturn { get; }
+        }
 
         private void Awake()
         {
@@ -213,6 +235,15 @@ namespace DoNotDraw.World
 
         private void OnDisable()
         {
+            if (blackoutRoutine != null)
+            {
+                StopCoroutine(blackoutRoutine);
+                blackoutRoutine = null;
+            }
+
+            blackoutTransitions.Clear();
+            RestoreFromBlackout();
+
             foreach ((StorySignal signal, Action<StorySignalContext> handler) in subscriptions)
             {
                 if (signal != null)
@@ -264,9 +295,9 @@ namespace DoNotDraw.World
                 doorCrackGazeArmed = false;
                 SetFact(doorSilhouetteSeenFact, true);
                 PlayOneShot(silhouetteWhooshClip, 0.72f);
-                HideSilhouette(doorCrackSilhouette);
-                StartScriptedFlicker(3, 0.09f, 0.12f);
-                runner?.RequestExternalAdvance();
+                QueueBlackoutTransition(
+                    () => HideSilhouette(doorCrackSilhouette),
+                    () => runner?.RequestExternalAdvance());
             }
 
             if (turnTestActive && HasTurnedAround())
@@ -377,9 +408,11 @@ namespace DoNotDraw.World
         private void RevealLightSwitch()
         {
             StopRearWarning();
-            StartScriptedFlicker(2, 0.08f, 0.1f);
-            lightSwitchRoot?.SetActive(true);
-            lightSwitch?.SetInteractionEnabled(false);
+            QueueBlackoutTransition(() =>
+            {
+                lightSwitchRoot?.SetActive(true);
+                lightSwitch?.SetInteractionEnabled(false);
+            });
         }
 
         private void HandleLightSwitchActivated(HorrorLightSwitchInteractable source)
@@ -763,45 +796,114 @@ namespace DoNotDraw.World
             silhouetteRoutine = null;
         }
 
-        private void StartScriptedFlicker(int count, float offDuration, float onDuration)
+        private void QueueBlackoutTransition(Action duringBlackout, Action afterLightsReturn = null)
         {
-            if (ceilingLight == null)
+            blackoutTransitions.Enqueue(new BlackoutTransitionRequest(duringBlackout, afterLightsReturn));
+            if (blackoutRoutine == null)
+            {
+                blackoutRoutine = StartCoroutine(BlackoutTransitionRoutine());
+            }
+        }
+
+        private IEnumerator BlackoutTransitionRoutine()
+        {
+            while (blackoutTransitions.Count > 0)
+            {
+                BlackoutTransitionRequest request = blackoutTransitions.Dequeue();
+                EnterBlackout();
+
+                // Keep at least one fully rendered black frame before mutating the scene.
+                yield return null;
+                if (blackoutChangeDelay > 0f)
+                {
+                    yield return new WaitForSecondsRealtime(blackoutChangeDelay);
+                }
+
+                try
+                {
+                    request.DuringBlackout?.Invoke();
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception, this);
+                }
+
+                if (blackoutPostChangeHold > 0f)
+                {
+                    yield return new WaitForSecondsRealtime(blackoutPostChangeHold);
+                }
+
+                RestoreFromBlackout();
+                try
+                {
+                    request.AfterLightsReturn?.Invoke();
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception, this);
+                }
+
+                // Ensure the restored room is rendered before another queued blackout begins.
+                yield return null;
+            }
+
+            blackoutRoutine = null;
+        }
+
+        private void EnterBlackout()
+        {
+            if (lightRoutine != null)
+            {
+                StopCoroutine(lightRoutine);
+                lightRoutine = null;
+            }
+
+            blackoutActive = true;
+            ceilingLightWasEnabled = ceilingLight != null && ceilingLight.enabled;
+            secondRoomLightWasEnabled = secondRoomLight != null && secondRoomLight.enabled;
+            if (ceilingLight != null)
+            {
+                ceilingLight.enabled = false;
+            }
+
+            if (secondRoomLight != null)
+            {
+                secondRoomLight.enabled = false;
+            }
+
+            if (screenFade != null)
+            {
+                screenFade.alpha = 1f;
+                screenFade.blocksRaycasts = true;
+                screenFade.interactable = false;
+            }
+        }
+
+        private void RestoreFromBlackout()
+        {
+            if (!blackoutActive)
             {
                 return;
             }
 
-            if (lightRoutine != null)
+            if (ceilingLight != null)
             {
-                StopCoroutine(lightRoutine);
+                ceilingLight.enabled = ceilingLightWasEnabled;
             }
 
-            lightRoutine = StartCoroutine(FlickerRoutine(count, offDuration, onDuration));
-        }
-
-        private IEnumerator FlickerRoutine(int count, float offDuration, float onDuration)
-        {
-            for (int index = 0; index < count; index++)
-            {
-                ceilingLight.enabled = false;
-                if (secondRoomLight != null)
-                {
-                    secondRoomLight.enabled = false;
-                }
-                yield return new WaitForSeconds(offDuration);
-                ceilingLight.enabled = true;
-                if (secondRoomLight != null)
-                {
-                    secondRoomLight.enabled = true;
-                }
-                yield return new WaitForSeconds(onDuration);
-            }
-
-            ceilingLight.enabled = true;
             if (secondRoomLight != null)
             {
-                secondRoomLight.enabled = true;
+                secondRoomLight.enabled = secondRoomLightWasEnabled;
             }
-            lightRoutine = null;
+
+            if (screenFade != null)
+            {
+                screenFade.alpha = 0f;
+                screenFade.blocksRaycasts = false;
+                screenFade.interactable = false;
+            }
+
+            blackoutActive = false;
         }
 
         private void StartLightFade(float targetIntensity, float duration)
@@ -908,6 +1010,8 @@ namespace DoNotDraw.World
             focusedLookDot = Mathf.Clamp(focusedLookDot, 0.5f, 0.999f);
             turnAroundAngle = Mathf.Clamp(turnAroundAngle, 20f, 170f);
             threatApproachDuration = Mathf.Max(1f, threatApproachDuration);
+            blackoutChangeDelay = Mathf.Max(0f, blackoutChangeDelay);
+            blackoutPostChangeHold = Mathf.Max(0f, blackoutPostChangeHold);
             endingHold = Mathf.Max(0f, endingHold);
             endingFadeDuration = Mathf.Max(0.1f, endingFadeDuration);
         }

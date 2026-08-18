@@ -1520,13 +1520,18 @@ namespace DoNotDraw.Narrative.Editor
             SerializedProperty jumpHeight = serialized.FindProperty("JumpHeight");
             SerializedProperty topClamp = serialized.FindProperty("TopClamp");
             SerializedProperty bottomClamp = serialized.FindProperty("BottomClamp");
-            if (jumpHeight == null || topClamp == null || bottomClamp == null)
+            if (topClamp == null || bottomClamp == null)
             {
                 throw new InvalidOperationException(
-                    "FirstPersonController movement fields changed; update the final scene builder.");
+                    "FirstPersonController camera clamp fields changed; update the final scene builder.");
             }
 
-            jumpHeight.floatValue = 0f;
+            // The customized controller removes jump entirely, so JumpHeight is optional.
+            if (jumpHeight != null)
+            {
+                jumpHeight.floatValue = 0f;
+            }
+
             topClamp.floatValue = 45f;
             bottomClamp.floatValue = -45f;
             serialized.ApplyModifiedPropertiesWithoutUndo();

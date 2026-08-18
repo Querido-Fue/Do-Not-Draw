@@ -48,5 +48,5 @@
 - `Tools > Do Not Draw > Build Final Flow Experience`는 최종 데이터와 `ClosedRoom`의 `FINAL EXPERIENCE - FLOW AUTHORITY` 루트를 재생성하는 멱등 빌더다. 최종 루트나 생성 자산을 수동으로 고쳤다면 재빌드 시 덮어써질 수 있으므로 빌더 코드를 먼저 수정한다.
 - 빌더는 원본 `Assets/Sounds/voice.mp3`를 보존하고 무음 구간을 기준으로 자른다. 첫 감지 구간은 톤 테스트라 제외하고 2번부터 21개 카드 음성으로 `Assets/Sounds/voice/`에 생성한다.
 - 두 번째 방에서 첫 카드를 뽑지 않고 복귀하는 경우에만 4-1 카드로 분기한다. 이 경로는 `entered_second_room`, `exited_second_room`, `enter_card_drawn` 사실과 외부 진행 요청으로 구성한다.
-- 무작위/상시 전구 깜빡임은 사용하지 않는다. 최종 흐름에 명시된 순간에만 `ClosedRoomStoryDirector`가 짧은 일회성 점멸을 실행한다.
+- 무작위/상시 전구 깜빡임은 사용하지 않는다. 최종 흐름의 “조명이 깜빡임”은 `ClosedRoomStoryDirector`가 `완전 암전 → 검은 화면 중 오브젝트/상태 변경 → 조명 복구` 순서의 일회성 전환으로 실행한다.
 - `Assets/DoNotDraw/Narrative/Prototype/`은 기반 회귀 확인용으로 남겨두며 최종 씬 러너에는 연결하지 않는다.
