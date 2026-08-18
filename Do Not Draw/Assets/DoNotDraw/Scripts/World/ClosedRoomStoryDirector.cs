@@ -140,6 +140,7 @@ namespace DoNotDraw.World
         private readonly Queue<BlackoutTransitionRequest> blackoutTransitions =
             new Queue<BlackoutTransitionRequest>();
         private bool blackoutActive;
+        private bool lightSwitchInteractionRequested;
         private bool ceilingLightWasEnabled;
         private bool secondRoomLightWasEnabled;
 
@@ -189,6 +190,8 @@ namespace DoNotDraw.World
                 threatSilhouette.gameObject.SetActive(false);
             }
 
+            lightSwitchInteractionRequested = false;
+            lightSwitch?.SetInteractionEnabled(false);
             lightSwitchRoot?.SetActive(false);
             secondDoorRoot?.SetActive(false);
             secondDoorCover?.SetActive(true);
@@ -334,7 +337,8 @@ namespace DoNotDraw.World
                     RevealLightSwitch();
                     break;
                 case ClosedRoomCue.EnableLightSwitchInteraction:
-                    lightSwitch?.SetInteractionEnabled(true);
+                    lightSwitchInteractionRequested = true;
+                    RefreshLightSwitchInteraction();
                     break;
                 case ClosedRoomCue.EnableSecondDoorInteraction:
                     secondDoor?.SetInteractionEnabled(true);
@@ -408,15 +412,23 @@ namespace DoNotDraw.World
         private void RevealLightSwitch()
         {
             StopRearWarning();
-            QueueBlackoutTransition(() =>
-            {
-                lightSwitchRoot?.SetActive(true);
-                lightSwitch?.SetInteractionEnabled(false);
-            });
+            lightSwitchInteractionRequested = false;
+            lightSwitch?.SetInteractionEnabled(false);
+            QueueBlackoutTransition(
+                () => lightSwitchRoot?.SetActive(true),
+                RefreshLightSwitchInteraction);
+        }
+
+        private void RefreshLightSwitchInteraction()
+        {
+            bool visible = lightSwitchRoot != null && lightSwitchRoot.activeInHierarchy;
+            lightSwitch?.SetInteractionEnabled(
+                lightSwitchInteractionRequested && visible && !blackoutActive);
         }
 
         private void HandleLightSwitchActivated(HorrorLightSwitchInteractable source)
         {
+            lightSwitchInteractionRequested = false;
             StartCoroutine(LightSwitchCycleRoutine());
         }
 

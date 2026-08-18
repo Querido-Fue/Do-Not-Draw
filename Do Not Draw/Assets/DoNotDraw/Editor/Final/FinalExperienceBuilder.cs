@@ -804,11 +804,13 @@ namespace DoNotDraw.Narrative.Editor
                 0.15f,
                 0.12f,
                 true);
+            Material interactionGlow = GetOrCreateInteractionGlowMaterial();
 
             BuildFirstRoomDoorWall(root.transform, wall, doorMaterial);
             HorrorDoorInteractable secondDoor = FindChildRecursive(root.transform, "Second Door Pivot")
                 .GetComponent<HorrorDoorInteractable>();
             GameObject secondDoorCover = FindChildRecursive(root.transform, "Second Door Concealing Wall").gameObject;
+            ConfigureInteractionGlow(secondDoor, interactionGlow);
 
             GameObject secondRoom = BuildSecondRoom(
                 root.transform,
@@ -827,6 +829,8 @@ namespace DoNotDraw.Narrative.Editor
             CardDeckInteraction primaryInteraction = primaryDeckObject.GetComponent<CardDeckInteraction>();
             ConfigureDeckInteraction(primaryDeckObject, primaryInteraction, runner, true);
             ConfigureDeckInteraction(secondInteraction.gameObject, secondInteraction, runner, false);
+            ConfigureInteractionGlow(primaryInteraction, interactionGlow);
+            ConfigureInteractionGlow(secondInteraction, interactionGlow);
 
             if (assets.Sequence == null || !EditorUtility.IsPersistent(assets.Sequence))
             {
@@ -851,7 +855,6 @@ namespace DoNotDraw.Narrative.Editor
             SerializedObject routerSerialized = new SerializedObject(interactionRouter);
             Set(routerSerialized, "viewTransform", playerCamera != null ? playerCamera.transform : player.transform);
             Set(routerSerialized, "maxDistance", 2.65f);
-            Set(routerSerialized, "minimumFacingDot", 0.42f);
             Set(routerSerialized, "promptPanel", promptPanel);
             Set(routerSerialized, "promptText", promptText);
             routerSerialized.ApplyModifiedPropertiesWithoutUndo();
@@ -868,8 +871,10 @@ namespace DoNotDraw.Narrative.Editor
             ConfigureDoor(secondDoor, doorCreak, doorSlam);
             HorrorLightSwitchInteractable lightSwitch = BuildLightSwitch(
                 root.transform,
+                originalDesk.transform,
                 metal,
                 switchClip);
+            ConfigureInteractionGlow(lightSwitch, interactionGlow);
 
             Transform rearTarget = CreateMarker(root.transform, "Rear Warning Target", new Vector3(0f, 1.25f, -2.75f));
             GameObject windowSilhouette = CreateSilhouette(
@@ -1114,18 +1119,66 @@ namespace DoNotDraw.Narrative.Editor
 
         private static HorrorLightSwitchInteractable BuildLightSwitch(
             Transform parent,
+            Transform desk,
             Material material,
             AudioClip clip)
         {
+            Transform desktop = FindChildRecursive(desk, "Desktop");
+            MeshFilter desktopMesh = desktop != null ? desktop.GetComponent<MeshFilter>() : null;
+            if (desktop == null || desktopMesh == null || desktopMesh.sharedMesh == null)
+            {
+                throw new InvalidOperationException(
+                    "The table light switch requires a Desktop child with a mesh.");
+            }
+
+            Bounds desktopLocalBounds = desktopMesh.sharedMesh.bounds;
+            Vector3 desktopScale = desktop.lossyScale;
+            float desktopHalfWidth = Mathf.Abs(desktopLocalBounds.extents.x * desktopScale.x);
+            float desktopHalfHeight = Mathf.Abs(desktopLocalBounds.extents.y * desktopScale.y);
+            float desktopHalfDepth = Mathf.Abs(desktopLocalBounds.extents.z * desktopScale.z);
+            const float sideInset = 0.32f;
+            const float depthOffset = 0.08f;
+            const float surfaceClearance = 0.002f;
+            float rightOffset = Mathf.Max(0f, desktopHalfWidth - sideInset);
+            float clampedDepthOffset = Mathf.Clamp(
+                depthOffset,
+                -Mathf.Max(0f, desktopHalfDepth - 0.28f),
+                Mathf.Max(0f, desktopHalfDepth - 0.28f));
+
             GameObject root = new GameObject("Table Light Switch");
             root.transform.SetParent(parent, false);
-            root.transform.position = new Vector3(-0.78f, 0.91f, 0.08f);
+            root.transform.SetPositionAndRotation(
+                desktop.position
+                    + desktop.right * rightOffset
+                    + desktop.forward * clampedDepthOffset
+                    + desktop.up * (desktopHalfHeight + surfaceClearance),
+                desktop.rotation);
+
             BoxCollider collider = root.AddComponent<BoxCollider>();
-            collider.size = new Vector3(0.34f, 0.16f, 0.42f);
-            CreateCube("Switch Base", root.transform, Vector3.zero, new Vector3(0.34f, 0.12f, 0.42f), material, false);
-            GameObject lever = CreateCube("Switch Lever", root.transform, Vector3.zero, new Vector3(0.08f, 0.07f, 0.25f), material, false);
-            lever.transform.localPosition = new Vector3(0f, 0.085f, 0f);
-            Transform point = CreateMarker(root.transform, "Switch Interaction Point", new Vector3(0f, 0.12f, 0f), true);
+            collider.center = new Vector3(0f, 0.14f, 0f);
+            collider.size = new Vector3(0.52f, 0.28f, 0.56f);
+
+            GameObject switchBase = CreateLocalCube(
+                "Switch Base",
+                root.transform,
+                new Vector3(0f, 0.05f, 0f),
+                new Vector3(0.36f, 0.1f, 0.44f),
+                material,
+                false);
+            GameObject lever = CreateLocalCube(
+                "Switch Lever",
+                root.transform,
+                new Vector3(0f, 0.14f, 0f),
+                new Vector3(0.09f, 0.07f, 0.27f),
+                material,
+                false);
+            Transform point = CreateMarker(
+                root.transform,
+                "Switch Interaction Point",
+                new Vector3(0f, 0.22f, 0f),
+                true);
+            ValidateLightSwitchAssembly(root.transform, switchBase.transform, lever.transform, collider);
+
             AudioSource audio = root.AddComponent<AudioSource>();
             audio.playOnAwake = false;
             audio.spatialBlend = 1f;
@@ -1137,6 +1190,38 @@ namespace DoNotDraw.Narrative.Editor
             Set(serialized, "switchSound", clip);
             serialized.ApplyModifiedPropertiesWithoutUndo();
             return interactable;
+        }
+
+        private static void ValidateLightSwitchAssembly(
+            Transform root,
+            Transform switchBase,
+            Transform lever,
+            BoxCollider collider)
+        {
+            if (switchBase.parent != root || lever.parent != root)
+            {
+                throw new InvalidOperationException(
+                    "Every light switch visual must be parented to the switch root.");
+            }
+
+            float baseBottom = switchBase.localPosition.y - switchBase.localScale.y * 0.5f;
+            float baseTop = switchBase.localPosition.y + switchBase.localScale.y * 0.5f;
+            float leverBottom = lever.localPosition.y - lever.localScale.y * 0.5f;
+            if (baseBottom < -0.001f || leverBottom < baseTop - 0.001f)
+            {
+                throw new InvalidOperationException(
+                    "The light switch base or lever intersects the tabletop assembly plane.");
+            }
+
+            Bounds visualBounds = new Bounds(switchBase.localPosition, switchBase.localScale);
+            visualBounds.Encapsulate(new Bounds(lever.localPosition, lever.localScale));
+            Bounds interactionBounds = new Bounds(collider.center, collider.size);
+            if (!interactionBounds.Contains(visualBounds.min)
+                || !interactionBounds.Contains(visualBounds.max))
+            {
+                throw new InvalidOperationException(
+                    "The light switch interaction collider must contain the complete switch assembly.");
+            }
         }
 
         private static void ConfigureDoor(
@@ -1448,6 +1533,60 @@ namespace DoNotDraw.Narrative.Editor
             return material;
         }
 
+        private static Material GetOrCreateInteractionGlowMaterial()
+        {
+            const string shaderName = "DoNotDraw/InteractionOuterGlow";
+            string path = $"{FinalMaterialRoot}/InteractionOuterGlow.mat";
+            Shader shader = Shader.Find(shaderName);
+            if (shader == null)
+            {
+                throw new InvalidOperationException(
+                    $"Interaction glow shader '{shaderName}' was not imported.");
+            }
+
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+            {
+                material = new Material(shader);
+                AssetDatabase.CreateAsset(material, path);
+            }
+            else if (material.shader != shader)
+            {
+                material.shader = shader;
+            }
+
+            material.SetColor("_GlowColor", new Color(0.1f, 0.82f, 2.4f, 0.8f));
+            material.SetFloat("_OutlineWidth", 0.026f);
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
+        private static void ConfigureInteractionGlow(
+            PlayerInteractableBehaviour interactable,
+            Material glowMaterial)
+        {
+            if (interactable == null)
+            {
+                throw new InvalidOperationException("Cannot configure interaction glow on a missing interactable.");
+            }
+
+            Renderer[] renderers = interactable.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Interactable '{interactable.name}' has no renderer for its outer glow.");
+            }
+
+            InteractableOuterGlow glow = interactable.GetComponent<InteractableOuterGlow>();
+            if (glow == null)
+            {
+                glow = interactable.gameObject.AddComponent<InteractableOuterGlow>();
+            }
+
+            glow.Configure(glowMaterial, renderers);
+            EditorUtility.SetDirty(glow);
+        }
+
         private static GameObject CreateCube(
             string name,
             Transform parent,
@@ -1459,6 +1598,21 @@ namespace DoNotDraw.Narrative.Editor
             GameObject cube = CreatePrimitive(PrimitiveType.Cube, name, parent, keepCollider, material);
             cube.transform.position = position;
             cube.transform.localScale = scale;
+            return cube;
+        }
+
+        private static GameObject CreateLocalCube(
+            string name,
+            Transform parent,
+            Vector3 localPosition,
+            Vector3 localScale,
+            Material material,
+            bool keepCollider = true)
+        {
+            GameObject cube = CreatePrimitive(PrimitiveType.Cube, name, parent, keepCollider, material);
+            cube.transform.localPosition = localPosition;
+            cube.transform.localRotation = Quaternion.identity;
+            cube.transform.localScale = localScale;
             return cube;
         }
 

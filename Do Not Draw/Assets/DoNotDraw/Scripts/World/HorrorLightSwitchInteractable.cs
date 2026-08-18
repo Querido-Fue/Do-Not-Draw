@@ -11,7 +11,7 @@ namespace DoNotDraw.World
     {
         [SerializeField] private Transform lever;
         [SerializeField] private Transform interactionPoint;
-        [SerializeField] private string prompt = "[F]  USE SWITCH";
+        [SerializeField] private string prompt = "[F]  USE LIGHT SWITCH";
         [SerializeField] private bool interactionEnabled;
         [SerializeField] private float pressedAngle = -28f;
         [SerializeField, Min(0.05f)] private float animationDuration = 0.16f;
@@ -40,7 +40,7 @@ namespace DoNotDraw.World
 
         public override void Interact(PlayerInteractionRouter router)
         {
-            if (!CanInteract)
+            if (!CanExecuteInteraction)
             {
                 return;
             }

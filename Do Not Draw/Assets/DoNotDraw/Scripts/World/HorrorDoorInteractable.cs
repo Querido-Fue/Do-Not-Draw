@@ -48,7 +48,7 @@ namespace DoNotDraw.World
 
         public override void Interact(PlayerInteractionRouter router)
         {
-            if (!CanInteract)
+            if (!CanExecuteInteraction)
             {
                 return;
             }

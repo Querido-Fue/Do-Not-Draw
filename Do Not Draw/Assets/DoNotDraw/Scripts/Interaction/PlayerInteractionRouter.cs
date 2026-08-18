@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -14,36 +13,49 @@ namespace DoNotDraw.Interaction
         string InteractionPrompt { get; }
         Vector3 InteractionPoint { get; }
         float InteractionPriority { get; }
+        bool IsInteractionHighlighted { get; }
+        void SetInteractionHighlighted(bool highlighted);
         void Interact(PlayerInteractionRouter router);
     }
 
     public abstract class PlayerInteractableBehaviour : MonoBehaviour, IPlayerInteractable
     {
-        private static readonly HashSet<PlayerInteractableBehaviour> Registry =
-            new HashSet<PlayerInteractableBehaviour>();
+        [SerializeField] private InteractableOuterGlow outerGlow;
 
-        public static IEnumerable<PlayerInteractableBehaviour> ActiveInteractables => Registry;
+        private bool interactionHighlighted;
 
         public virtual bool CanInteract => isActiveAndEnabled;
         public abstract string InteractionPrompt { get; }
         public virtual Vector3 InteractionPoint => transform.position;
         public virtual float InteractionPriority => 0f;
+        public bool IsInteractionHighlighted => interactionHighlighted;
+        protected bool CanExecuteInteraction => CanInteract && interactionHighlighted;
         public abstract void Interact(PlayerInteractionRouter router);
 
         protected virtual void OnEnable()
         {
-            Registry.Add(this);
+            interactionHighlighted = false;
+            outerGlow ??= GetComponent<InteractableOuterGlow>();
+            outerGlow?.SetVisible(false);
         }
 
         protected virtual void OnDisable()
         {
-            Registry.Remove(this);
+            SetInteractionHighlighted(false);
         }
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetRegistry()
+        public void SetInteractionHighlighted(bool highlighted)
         {
-            Registry.Clear();
+            bool shouldHighlight = highlighted && CanInteract;
+            outerGlow ??= GetComponent<InteractableOuterGlow>();
+            if (outerGlow == null || !outerGlow.isActiveAndEnabled)
+            {
+                interactionHighlighted = false;
+                return;
+            }
+
+            outerGlow.SetVisible(shouldHighlight);
+            interactionHighlighted = shouldHighlight && outerGlow.IsVisible;
         }
     }
 
@@ -52,7 +64,6 @@ namespace DoNotDraw.Interaction
     {
         [SerializeField] private Transform viewTransform;
         [SerializeField, Min(0.5f)] private float maxDistance = 2.5f;
-        [SerializeField, Range(-1f, 1f)] private float minimumFacingDot = 0.45f;
         [SerializeField, Min(0f)] private float inputCooldown = 0.12f;
         [SerializeField] private LayerMask interactionMask = ~0;
 
@@ -77,7 +88,7 @@ namespace DoNotDraw.Interaction
 
         private void Update()
         {
-            current = SelectBestInteractable();
+            SetCurrent(SelectAimedInteractable());
             if (current == null)
             {
                 SetPromptVisible(false);
@@ -90,52 +101,52 @@ namespace DoNotDraw.Interaction
             }
 
             SetPromptVisible(true);
-            if (Time.unscaledTime >= nextInputTime && WasInteractKeyPressed())
+            if (current.CanInteract
+                && current.IsInteractionHighlighted
+                && Time.unscaledTime >= nextInputTime
+                && WasInteractKeyPressed())
             {
                 nextInputTime = Time.unscaledTime + inputCooldown;
                 current.Interact(this);
+                if (!current.CanInteract || !current.IsInteractionHighlighted)
+                {
+                    SetCurrent(null);
+                }
             }
         }
 
-        private IPlayerInteractable SelectBestInteractable()
+        private IPlayerInteractable SelectAimedInteractable()
         {
             if (viewTransform == null)
             {
                 return null;
             }
 
-            IPlayerInteractable best = null;
-            float bestScore = float.NegativeInfinity;
-            Vector3 origin = viewTransform.position;
-            Vector3 forward = viewTransform.forward;
+            if (!Physics.Raycast(
+                    viewTransform.position,
+                    viewTransform.forward,
+                    out RaycastHit hit,
+                    maxDistance,
+                    interactionMask,
+                    QueryTriggerInteraction.Ignore))
+            {
+                return null;
+            }
 
-            foreach (PlayerInteractableBehaviour candidate in PlayerInteractableBehaviour.ActiveInteractables)
+            IPlayerInteractable best = null;
+            float bestPriority = float.NegativeInfinity;
+
+            foreach (PlayerInteractableBehaviour candidate in
+                     hit.collider.GetComponentsInParent<PlayerInteractableBehaviour>(true))
             {
                 if (candidate == null || !candidate.CanInteract)
                 {
                     continue;
                 }
 
-                Vector3 offset = candidate.InteractionPoint - origin;
-                float distance = offset.magnitude;
-                if (distance <= 0.001f || distance > maxDistance)
+                if (candidate.InteractionPriority > bestPriority)
                 {
-                    continue;
-                }
-
-                Vector3 direction = offset / distance;
-                float facing = Vector3.Dot(forward, direction);
-                if (facing < minimumFacingDot || IsOccluded(candidate, origin, direction, distance))
-                {
-                    continue;
-                }
-
-                float score = candidate.InteractionPriority * 10f
-                    + facing * 2f
-                    - distance / Mathf.Max(0.01f, maxDistance);
-                if (score > bestScore)
-                {
-                    bestScore = score;
+                    bestPriority = candidate.InteractionPriority;
                     best = candidate;
                 }
             }
@@ -143,32 +154,34 @@ namespace DoNotDraw.Interaction
             return best;
         }
 
-        private bool IsOccluded(
-            IPlayerInteractable candidate,
-            Vector3 origin,
-            Vector3 direction,
-            float distance)
+        private void SetCurrent(IPlayerInteractable next)
         {
-            if (!Physics.Raycast(
-                    origin,
-                    direction,
-                    out RaycastHit hit,
-                    distance + 0.08f,
-                    interactionMask,
-                    QueryTriggerInteraction.Ignore))
+            if (ReferenceEquals(current, next))
             {
-                return false;
-            }
-
-            foreach (MonoBehaviour behaviour in hit.collider.GetComponentsInParent<MonoBehaviour>(true))
-            {
-                if (ReferenceEquals(behaviour, candidate))
+                if (current != null && !current.IsInteractionHighlighted)
                 {
-                    return false;
+                    current.SetInteractionHighlighted(true);
+                    if (!current.IsInteractionHighlighted)
+                    {
+                        current = null;
+                    }
                 }
+
+                return;
             }
 
-            return true;
+            current?.SetInteractionHighlighted(false);
+            current = next;
+            if (current == null)
+            {
+                return;
+            }
+
+            current.SetInteractionHighlighted(true);
+            if (!current.IsInteractionHighlighted)
+            {
+                current = null;
+            }
         }
 
         private static bool WasInteractKeyPressed()
@@ -190,14 +203,13 @@ namespace DoNotDraw.Interaction
 
         private void OnDisable()
         {
-            current = null;
+            SetCurrent(null);
             SetPromptVisible(false);
         }
 
         private void OnValidate()
         {
             maxDistance = Mathf.Max(0.5f, maxDistance);
-            minimumFacingDot = Mathf.Clamp(minimumFacingDot, -1f, 1f);
             inputCooldown = Mathf.Max(0f, inputCooldown);
         }
     }

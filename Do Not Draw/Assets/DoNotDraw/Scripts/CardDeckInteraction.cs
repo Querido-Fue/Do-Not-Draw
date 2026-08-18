@@ -28,6 +28,11 @@ namespace DoNotDraw.Interaction
 
         public override void Interact(PlayerInteractionRouter router)
         {
+            if (!CanExecuteInteraction)
+            {
+                return;
+            }
+
             runner?.RequestPlayerDraw();
         }
 
