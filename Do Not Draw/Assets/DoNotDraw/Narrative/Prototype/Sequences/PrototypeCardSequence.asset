@@ -1,0 +1,155 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93cc097ad9462c4458183733a29d6dbd, type: 3}
+  m_Name: PrototypeCardSequence
+  m_EditorClassIdentifier: Assembly-CSharp::DoNotDraw.Narrative.CardSequenceDefinition
+  stableId: prototype.sequence.foundation
+  description: Neutral eight-card sequence used to verify the foundation. It intentionally
+    contains no final narrative content.
+  initialDeckSize: 8
+  steps:
+  - stepId: prototype.step.01
+    editorLabel: Prototype Step 01
+    mode: 0
+    card: {fileID: 11400000, guid: efc16161f0ea32b4e91e4a970c1168f6, type: 2}
+    readyDelay: 0
+    drawAvailability:
+      matchMode: 0
+      conditions: []
+    completionDelay: 0
+    completionConditions:
+      matchMode: 0
+      conditions: []
+    enterSignals: []
+    activationSignals: []
+    revealSignals: []
+    completeSignals: []
+    transitions: []
+  - stepId: prototype.step.02
+    editorLabel: Prototype Step 02
+    mode: 0
+    card: {fileID: 11400000, guid: f3d1b6a35257cee4b9b4463f25c84530, type: 2}
+    readyDelay: 0
+    drawAvailability:
+      matchMode: 0
+      conditions: []
+    completionDelay: 0
+    completionConditions:
+      matchMode: 0
+      conditions: []
+    enterSignals: []
+    activationSignals: []
+    revealSignals: []
+    completeSignals: []
+    transitions: []
+  - stepId: prototype.step.03
+    editorLabel: Prototype Step 03
+    mode: 0
+    card: {fileID: 11400000, guid: cd35a34bc78fc604599d2e8869e36069, type: 2}
+    readyDelay: 0
+    drawAvailability:
+      matchMode: 0
+      conditions: []
+    completionDelay: 0
+    completionConditions:
+      matchMode: 0
+      conditions: []
+    enterSignals: []
+    activationSignals: []
+    revealSignals: []
+    completeSignals: []
+    transitions: []
+  - stepId: prototype.step.04
+    editorLabel: Prototype Step 04
+    mode: 0
+    card: {fileID: 11400000, guid: f5dd05ede44e83a49a1f74b0e9ed392e, type: 2}
+    readyDelay: 0
+    drawAvailability:
+      matchMode: 0
+      conditions: []
+    completionDelay: 0
+    completionConditions:
+      matchMode: 0
+      conditions: []
+    enterSignals: []
+    activationSignals: []
+    revealSignals: []
+    completeSignals: []
+    transitions: []
+  - stepId: prototype.step.05
+    editorLabel: Prototype Step 05
+    mode: 0
+    card: {fileID: 11400000, guid: 5f42f279a63190a4faeb2e37bbc1e404, type: 2}
+    readyDelay: 0
+    drawAvailability:
+      matchMode: 0
+      conditions: []
+    completionDelay: 0
+    completionConditions:
+      matchMode: 0
+      conditions: []
+    enterSignals: []
+    activationSignals: []
+    revealSignals: []
+    completeSignals: []
+    transitions: []
+  - stepId: prototype.step.06
+    editorLabel: Prototype Step 06
+    mode: 0
+    card: {fileID: 11400000, guid: a580f9bae2b8c0a418562233410e6fdd, type: 2}
+    readyDelay: 0
+    drawAvailability:
+      matchMode: 0
+      conditions: []
+    completionDelay: 0
+    completionConditions:
+      matchMode: 0
+      conditions: []
+    enterSignals: []
+    activationSignals: []
+    revealSignals: []
+    completeSignals: []
+    transitions: []
+  - stepId: prototype.step.07
+    editorLabel: Prototype Step 07
+    mode: 0
+    card: {fileID: 11400000, guid: dfd9b32dd2a82044bbbe2ed49b2b3541, type: 2}
+    readyDelay: 0
+    drawAvailability:
+      matchMode: 0
+      conditions: []
+    completionDelay: 0
+    completionConditions:
+      matchMode: 0
+      conditions: []
+    enterSignals: []
+    activationSignals: []
+    revealSignals: []
+    completeSignals: []
+    transitions: []
+  - stepId: prototype.step.08
+    editorLabel: Prototype Step 08
+    mode: 0
+    card: {fileID: 11400000, guid: e7f17b02e3ffa7a4f9056d35311ffe8f, type: 2}
+    readyDelay: 0
+    drawAvailability:
+      matchMode: 0
+      conditions: []
+    completionDelay: 0
+    completionConditions:
+      matchMode: 0
+      conditions: []
+    enterSignals: []
+    activationSignals: []
+    revealSignals: []
+    completeSignals: []
+    transitions: []
