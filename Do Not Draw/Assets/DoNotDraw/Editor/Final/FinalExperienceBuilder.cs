@@ -542,7 +542,7 @@ namespace DoNotDraw.Narrative.Editor
         {
             return new List<CardSpec>
             {
-                Card("do_not_draw_opening", "DO NOT DRAW."),
+                Card("do_not_draw_opening", "DO NOT DRAW.", faceTextureFileName: "Card10_DoNotDraw.png"),
                 Card("do_not_look_behind_early", "DO NOT LOOK BEHIND YOU.", faceTextureFileName: "Card1_DoNotLookBehindYou.png"),
                 Card("do_not_turn_off_light", "DO NOT TURN OFF THE LIGHT.", faceTextureFileName: "Card2_DoNotTurnOffTheLight.png"),
                 Card("do_not_open_second_door", "DO NOT OPEN THE SECOND DOOR.", faceTextureFileName: "Card3_DoNotOpenTheSecondDoor.png"),

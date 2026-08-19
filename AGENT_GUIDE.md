@@ -56,6 +56,7 @@
 - 빌더는 원본 `Assets/Sounds/voice.mp3`와 무음 구간 기준의 21개 분할 음성을 `Assets/Sounds/voice/`에 보존한다. 프로토타입 A에서는 두 `CardDeckPresenter`의 `voiceNarrationEnabled`를 꺼 실제 카드 음성 재생은 하지 않는다.
 - 최종 효과음의 권위 소스는 `Assets/Sounds/01_fluorescent_buzz_loop.wav`부터 `20_fluorescent_starter_tick.wav`까지의 번호형 파일군이다. `FinalExperienceBuilder.FinalAudioClips`가 형광등·시계·드론·창문 노이즈·호흡·카드·스위치·문·바람·위협 접근음을 의미별로 연결한다. 플레이어 발소리는 첫 방의 `12_carpet_footstep_single`과 두 번째 방의 `12b_carpet_footstep_room2_pitched`를 `ClosedRoomStoryDirector`가 방 경계에서 전환하며, 뒤쪽 4연속 발소리는 `13_footsteps_behind_4steps_carpet`을 별도 큐로 사용한다.
 - 엔딩 준비 시 이동 컨트롤러와 `RandomFootstepPlayer`를 함께 비활성화하고 재생 중 발소리를 즉시 정지한다. 최종 카드 공개 후 덱 줌과 마지막 1초 암전을 포함해 총 5초가 지나면 빌드에서는 `Application.Quit`, 에디터에서는 Play Mode 종료를 실행한다.
+- 최종 공간에는 실제 의자와 창문 너머의 의자 잔상을 생성하지 않는다. 플레이어는 첫 방 책상 북쪽(+Z)에서 시작해 남쪽(-Z), 즉 책상을 바라본다. 바닥의 비정상 그림자 연출은 의자 오브젝트와 독립된 `Unnatural Shadow Caster`로 유지한다.
 - 무작위/상시 전구 깜빡임은 사용하지 않는다. 방마다 실제 광원은 백룸 형광등 리그의 단일 포인트 라이트 하나이며, 여러 천장 등기구는 그 광원의 자식 발광 메시로 표현해 URP 추가 광원 비용과 연출 상태 분산을 피한다. 조명 변화는 `ClosedRoomStoryDirector`가 기획된 큐에서만 `완전 암전 → 검은 화면 중 오브젝트/상태 변경 → 조명 복구` 순서로 실행한다.
 - 이전에 만든 `AgedFloralWallpaper`, `WorldSpaceConcrete`, `AgedWoodFloor` 텍스처/재질은 보존하되 최종 씬 빌더에서는 참조하지 않는다.
 - `Assets/DoNotDraw/Narrative/Prototype/`은 기반 회귀 확인용으로 남겨두며 최종 씬 러너에는 연결하지 않는다.
