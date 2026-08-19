@@ -56,7 +56,18 @@ public class TitleButtonClickEvent : MonoBehaviour
 
     void ShowSettingPopup()
     {
-        SettingPopupManager.Instance.enablePopup();
+        SettingPopupManager popupManager = SettingPopupManager.Instance;
+        if (popupManager == null)
+        {
+            popupManager = FindAnyObjectByType<SettingPopupManager>(FindObjectsInactive.Include);
+        }
+        if (popupManager == null)
+        {
+            Debug.LogWarning("[Title] Setting popup manager is not available.", this);
+            return;
+        }
+
+        popupManager.enablePopup();
     }
 
     void ExitGame()

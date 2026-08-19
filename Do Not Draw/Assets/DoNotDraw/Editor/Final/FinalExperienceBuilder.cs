@@ -18,6 +18,10 @@ namespace DoNotDraw.Narrative.Editor
     {
         private const string ScenePath = "Assets/Scenes/ClosedRoom.unity";
         private const string FinalRootName = "FINAL EXPERIENCE - FLOW AUTHORITY";
+        private const string SettingsPopupRootName = "Settings Popup Runtime";
+        private const string SettingsPopupPrefabPath = "Assets/Prefabs/SettingPopup.prefab";
+        private const string VolumeManagerRootName = "Volume Manager Runtime";
+        private const string VolumeManagerPrefabPath = "Assets/Prefabs/VolumeManager.prefab";
         private const string FinalDataRoot = "Assets/DoNotDraw/Narrative/Final";
         private const string CardRoot = FinalDataRoot + "/Cards";
         private const string FactRoot = FinalDataRoot + "/Facts";
@@ -515,7 +519,8 @@ namespace DoNotDraw.Narrative.Editor
 
             foreach (string signalKey in new[]
                      {
-                         "begin_opening", "pulse_opening_card", "rear_look_rule", "arm_light_rule",
+                         "begin_opening", "pulse_opening_card", "reveal_opening_graffiti",
+                         "rear_look_rule", "arm_light_rule",
                          "arm_second_door_rule", "arm_enter_rule", "mark_enter_card_drawn",
                          "resolve_room_card_edge", "act_one_to_two",
                          "resume_atmosphere", "arm_window_vision", "pause_sensory_beat",
@@ -642,6 +647,7 @@ namespace DoNotDraw.Narrative.Editor
             steps.Add(opening);
 
             StepSpec rear = Step("s02_rear_rule", c["do_not_look_behind_early"], 0.75f);
+            rear.RevealSignals.Add(s["reveal_opening_graffiti"]);
             rear.RevealSignals.Add(s["rear_look_rule"]);
             steps.Add(rear);
 
@@ -935,6 +941,16 @@ namespace DoNotDraw.Narrative.Editor
             {
                 UnityEngine.Object.DestroyImmediate(oldRoot);
             }
+            GameObject oldSettingsPopup = FindSceneObject(scene, SettingsPopupRootName);
+            if (oldSettingsPopup != null)
+            {
+                UnityEngine.Object.DestroyImmediate(oldSettingsPopup);
+            }
+            GameObject oldVolumeManager = FindSceneObject(scene, VolumeManagerRootName);
+            if (oldVolumeManager != null)
+            {
+                UnityEngine.Object.DestroyImmediate(oldVolumeManager);
+            }
 
             GameObject originalDesk = FindSceneObject(scene, "Desk - Center");
             GameObject primaryDeckObject = FindSceneObject(scene, "Card Deck System");
@@ -942,10 +958,13 @@ namespace DoNotDraw.Narrative.Editor
             GameObject atmosphereObject = FindSceneObject(scene, "Atmosphere - Horror");
             GameObject promptPanel = FindSceneObject(scene, "Draw Card Prompt");
             Text promptText = FindSceneObject(scene, "Prompt Text")?.GetComponent<Text>();
+            GameObject openingGraffiti = FindSceneObject(scene, "DoNotDraw_Wall 1")
+                ?? FindSceneObject(scene, "DoNotDraw_Wall");
 
-            if (originalDesk == null || primaryDeckObject == null || player == null)
+            if (originalDesk == null || primaryDeckObject == null || player == null || openingGraffiti == null)
             {
-                throw new InvalidOperationException("[Final Experience] Required ClosedRoom scene objects were not found.");
+                throw new InvalidOperationException(
+                    "[Final Experience] Required desk, deck, player, or opening graffiti scene object was not found.");
             }
             FinalAudioClips audio = LoadFinalAudioClips();
 
@@ -956,6 +975,8 @@ namespace DoNotDraw.Narrative.Editor
             FindSceneObject(scene, "Small Ceiling Bulb")?.SetActive(false);
             GameObject root = new GameObject(FinalRootName);
             SceneManager.MoveGameObjectToScene(root, scene);
+            BuildVolumeManager(scene);
+            BuildSettingsPopup(scene);
 
             ConfigureBackroomsRenderSettings();
             Material wall = GetOrCreateWorldSpaceSurfaceMaterial(
@@ -1050,6 +1071,24 @@ namespace DoNotDraw.Narrative.Editor
                 true);
             Material interactionGlow = GetOrCreateInteractionGlowMaterial();
 
+            primaryDeckObject.SetActive(true);
+            primaryDeckObject.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            EditorUtility.SetDirty(primaryDeckObject.transform);
+
+            CardDeckPresenter primaryPresenter = primaryDeckObject.GetComponent<CardDeckPresenter>();
+            if (primaryPresenter == null || primaryPresenter.DisplayAnchor == null)
+            {
+                throw new InvalidOperationException(
+                    "The primary card deck requires a presenter with a display anchor.");
+            }
+
+            // The deck was turned around for the new player start, so mirror the landing anchor
+            // to keep drawn cards moving toward the opposite side of the tabletop.
+            Vector3 displayAnchorPosition = primaryPresenter.DisplayAnchor.localPosition;
+            displayAnchorPosition.x = -0.75f;
+            primaryPresenter.DisplayAnchor.localPosition = displayAnchorPosition;
+            EditorUtility.SetDirty(primaryPresenter.DisplayAnchor);
+
             DetailedRoomSetRefs room = DetailedRoomSetFactory.Build(
                 root.transform,
                 originalDesk,
@@ -1075,7 +1114,6 @@ namespace DoNotDraw.Narrative.Editor
 
             CardSequenceRunner runner = primaryDeckObject.GetComponent<CardSequenceRunner>();
             StoryBlackboard blackboard = primaryDeckObject.GetComponent<StoryBlackboard>();
-            CardDeckPresenter primaryPresenter = primaryDeckObject.GetComponent<CardDeckPresenter>();
             CardDeckInteraction primaryInteraction = primaryDeckObject.GetComponent<CardDeckInteraction>();
             primaryPresenter.SetVoiceNarrationEnabled(false);
             room.SecondPresenter.SetVoiceNarrationEnabled(false);
@@ -1169,6 +1207,16 @@ namespace DoNotDraw.Narrative.Editor
                 windSource,
                 oneShotSource,
                 audio);
+            ConfigureOpeningDiscoveryReveal(
+                root,
+                player.transform,
+                playerCamera != null ? playerCamera.transform : player.transform,
+                playerCamera,
+                originalDesk.transform,
+                lightSwitch.transform,
+                primaryDeckObject,
+                openingGraffiti,
+                assets.Signals["reveal_opening_graffiti"]);
         }
 
         private static void BuildFirstRoomDoorWall(Transform parent, Material wall, Material doorMaterial)
@@ -1306,6 +1354,53 @@ namespace DoNotDraw.Narrative.Editor
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        private static void ConfigureOpeningDiscoveryReveal(
+            GameObject host,
+            Transform player,
+            Transform view,
+            Camera playerCamera,
+            Transform roomCenter,
+            Transform switchTarget,
+            GameObject deck,
+            GameObject graffiti,
+            StorySignal graffitiRevealSignal)
+        {
+            OpeningDiscoveryReveal reveal = host.AddComponent<OpeningDiscoveryReveal>();
+            SerializedObject serialized = new SerializedObject(reveal);
+            Set(serialized, "playerRoot", player);
+            Set(serialized, "viewTransform", view);
+            Set(serialized, "playerCamera", playerCamera);
+            Set(serialized, "roomCenter", roomCenter);
+            Set(serialized, "switchTarget", switchTarget);
+            Set(serialized, "deckRoot", deck);
+            Set(serialized, "graffitiRoot", graffiti);
+            Set(serialized, "graffitiRevealSignal", graffitiRevealSignal);
+            SerializedProperty direction = serialized.FindProperty("switchSideDirection");
+            if (direction != null)
+            {
+                direction.vector3Value = Vector3.back;
+            }
+            SerializedProperty boundsCenter = serialized.FindProperty("deckSpawnBoundsCenter");
+            if (boundsCenter != null)
+            {
+                boundsCenter.vector3Value = new Vector3(0f, 0.12f, 0f);
+            }
+            SerializedProperty boundsSize = serialized.FindProperty("deckSpawnBoundsSize");
+            if (boundsSize != null)
+            {
+                boundsSize.vector3Value = new Vector3(1.05f, 0.6f, 1.3f);
+            }
+            Set(serialized, "viewArcDegrees", 120f);
+            Set(serialized, "hideTargetsOnAwake", true);
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(reveal);
+
+            deck.SetActive(false);
+            graffiti.SetActive(false);
+            EditorUtility.SetDirty(deck);
+            EditorUtility.SetDirty(graffiti);
+        }
+
         private static void ConfigurePresenterAudio(
             CardDeckPresenter presenter,
             AudioClip drawClip,
@@ -1357,41 +1452,28 @@ namespace DoNotDraw.Narrative.Editor
 
         private static HorrorLightSwitchInteractable BuildLightSwitch(
             Transform parent,
-            Transform desk,
+            Transform roomCenter,
             Material material,
             AudioClip switchOffClip,
             AudioClip switchOnClip)
         {
-            Transform desktop = FindChildRecursive(desk, "Desktop");
-            MeshFilter desktopMesh = desktop != null ? desktop.GetComponent<MeshFilter>() : null;
-            if (desktop == null || desktopMesh == null || desktopMesh.sharedMesh == null)
+            if (roomCenter == null)
             {
                 throw new InvalidOperationException(
-                    "The table light switch requires a Desktop child with a mesh.");
+                    "The opening wall switch requires a room-center transform.");
             }
 
-            Bounds desktopLocalBounds = desktopMesh.sharedMesh.bounds;
-            Vector3 desktopScale = desktop.lossyScale;
-            float desktopHalfWidth = Mathf.Abs(desktopLocalBounds.extents.x * desktopScale.x);
-            float desktopHalfHeight = Mathf.Abs(desktopLocalBounds.extents.y * desktopScale.y);
-            float desktopHalfDepth = Mathf.Abs(desktopLocalBounds.extents.z * desktopScale.z);
-            const float sideInset = 0.32f;
-            const float depthOffset = 0.08f;
-            const float surfaceClearance = 0.002f;
-            float rightOffset = Mathf.Max(0f, desktopHalfWidth - sideInset);
-            float clampedDepthOffset = Mathf.Clamp(
-                depthOffset,
-                -Mathf.Max(0f, desktopHalfDepth - 0.28f),
-                Mathf.Max(0f, desktopHalfDepth - 0.28f));
-
-            GameObject root = new GameObject("Table Light Switch");
+            const float playerRightOffset = -2.25f;
+            const float frontWallOffset = -2.29f;
+            const float mountingHeight = 1.12f;
+            GameObject root = new GameObject("Opening Wall Light Switch");
             root.transform.SetParent(parent, false);
             root.transform.SetPositionAndRotation(
-                desktop.position
-                    + desktop.right * rightOffset
-                    + desktop.forward * clampedDepthOffset
-                    + desktop.up * (desktopHalfHeight + surfaceClearance),
-                desktop.rotation);
+                roomCenter.position
+                    + roomCenter.right * playerRightOffset
+                    + roomCenter.forward * frontWallOffset
+                    + roomCenter.up * mountingHeight,
+                roomCenter.rotation * Quaternion.Euler(90f, 0f, 0f));
 
             BoxCollider collider = root.AddComponent<BoxCollider>();
             collider.center = new Vector3(0f, 0.14f, 0f);
@@ -1421,11 +1503,13 @@ namespace DoNotDraw.Narrative.Editor
             AudioSource audio = root.AddComponent<AudioSource>();
             audio.playOnAwake = false;
             audio.spatialBlend = 1f;
+            audio.minDistance = 0.8f;
+            audio.maxDistance = 8f;
             HorrorLightSwitchInteractable interactable = root.AddComponent<HorrorLightSwitchInteractable>();
             SerializedObject serialized = new SerializedObject(interactable);
             Set(serialized, "lever", lever.transform);
             Set(serialized, "interactionPoint", point);
-            Set(serialized, "interactionEnabled", false);
+            Set(serialized, "interactionEnabled", true);
             Set(serialized, "switchSound", (AudioClip)null);
             Set(serialized, "switchOffSound", switchOffClip);
             Set(serialized, "switchOnSound", switchOnClip);
@@ -1451,7 +1535,7 @@ namespace DoNotDraw.Narrative.Editor
             if (baseBottom < -0.001f || leverBottom < baseTop - 0.001f)
             {
                 throw new InvalidOperationException(
-                    "The light switch base or lever intersects the tabletop assembly plane.");
+                    "The light switch base or lever intersects the wall mounting plane.");
             }
 
             Bounds visualBounds = new Bounds(switchBase.localPosition, switchBase.localScale);
@@ -1605,6 +1689,89 @@ namespace DoNotDraw.Narrative.Editor
             return group;
         }
 
+        private static void BuildSettingsPopup(Scene scene)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(SettingsPopupPrefabPath);
+            if (prefab == null)
+            {
+                throw new InvalidOperationException(
+                    $"[Final Experience] Setting popup prefab was not found: {SettingsPopupPrefabPath}");
+            }
+
+            GameObject popupRoot = PrefabUtility.InstantiatePrefab(prefab, scene) as GameObject;
+            if (popupRoot == null)
+            {
+                throw new InvalidOperationException("[Final Experience] Failed to instantiate the setting popup.");
+            }
+
+            popupRoot.name = SettingsPopupRootName;
+            popupRoot.SetActive(true);
+
+            Canvas canvas = popupRoot.GetComponent<Canvas>();
+            if (canvas == null)
+            {
+                canvas = popupRoot.AddComponent<Canvas>();
+            }
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = 1000;
+
+            CanvasScaler scaler = popupRoot.GetComponent<CanvasScaler>();
+            if (scaler == null)
+            {
+                scaler = popupRoot.AddComponent<CanvasScaler>();
+            }
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+
+            if (popupRoot.GetComponent<GraphicRaycaster>() == null)
+            {
+                popupRoot.AddComponent<GraphicRaycaster>();
+            }
+
+            SettingPopupManager manager = popupRoot.GetComponent<SettingPopupManager>();
+            if (manager == null)
+            {
+                throw new InvalidOperationException(
+                    $"[Final Experience] {SettingsPopupPrefabPath} has no SettingPopupManager component.");
+            }
+
+            SerializedObject serialized = new SerializedObject(manager);
+            GameObject popup = serialized.FindProperty("popup")?.objectReferenceValue as GameObject;
+            if (popup == null)
+            {
+                throw new InvalidOperationException(
+                    $"[Final Experience] {SettingsPopupPrefabPath} has no popup object assigned.");
+            }
+
+            popup.SetActive(false);
+            EditorUtility.SetDirty(popupRoot);
+            EditorUtility.SetDirty(popup);
+        }
+
+        private static void BuildVolumeManager(Scene scene)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(VolumeManagerPrefabPath);
+            if (prefab == null)
+            {
+                throw new InvalidOperationException(
+                    $"[Final Experience] Volume manager prefab was not found: {VolumeManagerPrefabPath}");
+            }
+
+            GameObject managerRoot = PrefabUtility.InstantiatePrefab(prefab, scene) as GameObject;
+            if (managerRoot == null || managerRoot.GetComponent<VolumeManager>() == null)
+            {
+                throw new InvalidOperationException(
+                    $"[Final Experience] {VolumeManagerPrefabPath} could not provide a VolumeManager component.");
+            }
+
+            managerRoot.name = VolumeManagerRootName;
+            managerRoot.SetActive(true);
+            EditorUtility.SetDirty(managerRoot);
+        }
+
         private static void ConfigureDetailedDirector(
             ClosedRoomStoryDirector director,
             NarrativeAssets assets,
@@ -1670,6 +1837,8 @@ namespace DoNotDraw.Narrative.Editor
             Set(serialized, "screenFade", screenFade);
             Set(serialized, "enableClimaxThreat", false);
             Set(serialized, "flickerAmplitude", 0f);
+            Set(serialized, "switchResidualDarkeningDuration", 1f);
+            Set(serialized, "switchResidualLightMultiplier", 0.2f);
             Set(serialized, "ambientSource", ambience);
             Set(serialized, "clockSource", clockSource);
             Set(serialized, "rearSource", rearSource);
