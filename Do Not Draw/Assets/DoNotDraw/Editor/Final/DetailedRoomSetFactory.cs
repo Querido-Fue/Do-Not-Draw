@@ -517,7 +517,7 @@ namespace DoNotDraw.Narrative.Editor
                 cover = CreateCube(
                     "Second Door Concealing Wallpaper Wall",
                     parent,
-                    new Vector3(SecondDoorX, DoorHeight * 0.5f, wallZ - 0.19f),
+                    new Vector3(SecondDoorX, DoorHeight * 0.5f, wallZ - 0.05f),
                     new Vector3(DoorWidth + 0.04f, DoorHeight, 0.08f),
                     wall,
                     false);
@@ -568,6 +568,20 @@ namespace DoNotDraw.Narrative.Editor
                 new Vector3(width * 0.35f, 0f, -0.16f),
                 Quaternion.identity,
                 true);
+            if (!openTowardFirstRoom)
+            {
+                GameObject escapeGuard = CreateCube(
+                    "Story Exit Escape Guard",
+                    pivot.transform,
+                    new Vector3(width * 0.455f, 1.433f, 0.407f),
+                    new Vector3(width + 0.2f, 0.1f, 0.1f),
+                    null);
+                Renderer escapeGuardRenderer = escapeGuard.GetComponent<Renderer>();
+                if (escapeGuardRenderer != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(escapeGuardRenderer);
+                }
+            }
             AudioSource source = pivot.AddComponent<AudioSource>();
             source.playOnAwake = false;
             source.spatialBlend = 1f;
@@ -607,10 +621,11 @@ namespace DoNotDraw.Narrative.Editor
             GameObject root = new GameObject(name);
             root.transform.SetParent(parent, false);
             root.transform.position = position;
-            CreateCube("Black Glass", root.transform, Vector3.zero, new Vector3(DoorWidth, 1.38f, 0.035f), windowMaterial, false);
+            CreateCube("Black Glass", root.transform, Vector3.zero, new Vector3(DoorWidth, 1.42f, 0.035f), windowMaterial, false);
             CreateCube("Frame Left", root.transform, new Vector3(-DoorWidth * 0.53f, 0f, -0.02f), new Vector3(0.075f, 1.55f, 0.08f), curtainMaterial, false);
             CreateCube("Frame Right", root.transform, new Vector3(DoorWidth * 0.53f, 0f, -0.02f), new Vector3(0.075f, 1.55f, 0.08f), curtainMaterial, false);
             CreateCube("Frame Top", root.transform, new Vector3(0f, 0.74f, -0.02f), new Vector3(0.98f, 0.075f, 0.08f), curtainMaterial, false);
+            CreateCube("Frame Bottom", root.transform, new Vector3(0f, -0.74f, -0.02f), new Vector3(0.98f, 0.075f, 0.08f), curtainMaterial, false);
             CreateCube("Curtain Left", root.transform, new Vector3(-0.33f, 0.08f, -0.08f), new Vector3(0.18f, 1.42f, 0.05f), curtainMaterial, false);
             CreateCube("Curtain Right Half", root.transform, new Vector3(0.36f, 0.3f, -0.08f), new Vector3(0.13f, 0.96f, 0.05f), curtainMaterial, false);
             target = CreateMarker(root.transform, "Window Gaze Target", Vector3.zero, Quaternion.identity, true);
