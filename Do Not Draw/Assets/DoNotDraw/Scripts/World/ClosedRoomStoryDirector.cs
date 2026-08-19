@@ -88,6 +88,8 @@ namespace DoNotDraw.World
         [SerializeField] private Light silhouetteBacklight;
         [SerializeField] private Light exitLight;
         [SerializeField, Range(0f, 0.05f)] private float flickerAmplitude;
+        [SerializeField, Min(0.05f)] private float switchResidualDarkeningDuration = 1f;
+        [SerializeField, Range(0f, 1f)] private float switchResidualLightMultiplier = 0.2f;
 
         [Header("Doors And Switch")]
         [SerializeField] private HorrorLightSwitchInteractable lightSwitch;
@@ -167,6 +169,11 @@ namespace DoNotDraw.World
         private float initialSecondLampColorTemperature;
         private Color initialLampColor;
         private Color initialSecondLampColor;
+        private Color initialAmbientLight;
+        private Color initialAmbientSkyColor;
+        private Color initialAmbientEquatorColor;
+        private Color initialAmbientGroundColor;
+        private float initialReflectionIntensity;
         private Vector3 baseViewLocalPosition;
         private Quaternion initialViewLocalRotation;
         private Vector3 lookReferenceForward;
@@ -191,7 +198,9 @@ namespace DoNotDraw.World
         private bool turnViolationTriggered;
         private bool endingExitArmed;
         private bool endingActive;
+        private bool lightRuleArmed;
         private bool lightRuleBlackoutActive;
+        private bool ambientLightingCached;
         private int lightRuleRevealCount;
         private int secondDoorRuleRevealCount;
         private int enterRuleRevealCount;
@@ -203,6 +212,7 @@ namespace DoNotDraw.World
         private Coroutine turnRoutine;
         private Coroutine endingRoutine;
         private Coroutine presenterSwitchRoutine;
+        private Coroutine ambientDarkeningRoutine;
 
         private CardDeckInteraction ActiveDeckInteraction => inSecondRoom
             ? secondRoomInteraction
@@ -238,6 +248,12 @@ namespace DoNotDraw.World
             initialSecondLampColorTemperature = secondRoomLampLight != null
                 ? secondRoomLampLight.colorTemperature
                 : initialLampColorTemperature;
+            initialAmbientLight = RenderSettings.ambientLight;
+            initialAmbientSkyColor = RenderSettings.ambientSkyColor;
+            initialAmbientEquatorColor = RenderSettings.ambientEquatorColor;
+            initialAmbientGroundColor = RenderSettings.ambientGroundColor;
+            initialReflectionIntensity = RenderSettings.reflectionIntensity;
+            ambientLightingCached = true;
             initialAmbientVolume = ambientSource != null ? ambientSource.volume : 0f;
             initialCameraFov = playerCamera != null ? playerCamera.fieldOfView : 60f;
             baseViewLocalPosition = playerView != null ? playerView.localPosition : Vector3.zero;
@@ -305,6 +321,7 @@ namespace DoNotDraw.World
             {
                 playerCamera.fieldOfView = initialCameraFov;
             }
+            RestoreAmbientLighting();
             presenterSwitchRoutine = null;
         }
 
@@ -344,17 +361,18 @@ namespace DoNotDraw.World
             turnTestActive = false;
             sensoryFrozen = false;
             microFlickerPaused = false;
+            lightRuleArmed = false;
             lightRuleBlackoutActive = false;
             lightRuleRevealCount = 0;
             secondDoorRuleRevealCount = 0;
             enterRuleRevealCount = 0;
             pendingCardDipMinimum = 0.84f;
+            RestoreAmbientLighting();
 
             firstRoomSet?.SetActive(true);
             secondRoomSet?.SetActive(true);
-            lightSwitchRoot?.SetActive(false);
-            lightSwitch?.ResetSwitch(true);
-            lightSwitch?.SetInteractionEnabled(false);
+            lightSwitchRoot?.SetActive(true);
+            lightSwitch?.SetInteractionEnabled(true);
             secondDoorRoot?.SetActive(false);
             secondDoorCover?.SetActive(true);
             secondDoor?.SnapClosed();
@@ -396,8 +414,8 @@ namespace DoNotDraw.World
             secondRoomInteraction?.SetBlockedDrawInteractionEnabled(false);
             if (screenFade != null)
             {
-                screenFade.alpha = 1f;
-                screenFade.blocksRaycasts = true;
+                screenFade.alpha = 0f;
+                screenFade.blocksRaycasts = false;
                 screenFade.interactable = false;
             }
             nextClockTick = Time.unscaledTime + 1f;
@@ -499,25 +517,17 @@ namespace DoNotDraw.World
 
         private IEnumerator OpeningRoutine()
         {
-            primaryLightBase = initialLampIntensity;
-            secondLightBase = initialSecondLampIntensity;
-            SetLightEnabled(lampLight, true);
-            SetLightEnabled(secondRoomLampLight, true);
+            bool openingLightsOn = lightSwitch == null || lightSwitch.IsOn;
+            ApplyOpeningSwitchState(openingLightsOn);
             if (screenFade != null)
             {
                 screenFade.alpha = 0f;
                 screenFade.blocksRaycasts = false;
             }
-            if (ambientSource != null)
+            if (openingLightsOn)
             {
-                ambientSource.volume = initialAmbientVolume;
-                if (!ambientSource.isPlaying)
-                {
-                    ambientSource.Play();
-                }
+                PlayOneShot(fluorescentPowerClip, 0.55f);
             }
-            StartClockLoop();
-            PlayOneShot(fluorescentPowerClip, 0.55f);
             primaryInteraction?.SetInteractionEnabled(true);
             yield return null;
         }
@@ -582,14 +592,15 @@ namespace DoNotDraw.World
 
         private void ArmLightRule()
         {
-            bool firstReveal = lightSwitchRoot != null && !lightSwitchRoot.activeSelf;
+            lightRuleArmed = true;
             lightSwitchRoot?.SetActive(true);
-            if (firstReveal)
+            if (lightSwitch != null)
             {
-                lightSwitch?.ResetSwitch(true);
-            }
-            if (lightSwitch != null && lightSwitch.IsOn)
-            {
+                if (!lightSwitch.IsOn)
+                {
+                    lightSwitch.ResetSwitch(true);
+                    ApplyOpeningSwitchState(true);
+                }
                 lightSwitch.SetInteractionEnabled(true);
             }
             QueueRuleCardDip(ref lightRuleRevealCount, true);
@@ -597,6 +608,13 @@ namespace DoNotDraw.World
 
         private void HandleLightSwitchStateChanged(HorrorLightSwitchInteractable source, bool isOn)
         {
+            if (!lightRuleArmed)
+            {
+                ApplyOpeningSwitchState(isOn);
+                source?.SetInteractionEnabled(true);
+                return;
+            }
+
             if (GetBool(lightSwitchUsedFact))
             {
                 return;
@@ -607,6 +625,7 @@ namespace DoNotDraw.World
                 SetLightEnabled(lampLight, false);
                 SetLightEnabled(secondRoomLampLight, false);
                 SetLightEnabled(moonLight, true);
+                StartSwitchResidualDarkening();
                 if (ambientSource != null)
                 {
                     ambientSource.volume = 0f;
@@ -621,7 +640,135 @@ namespace DoNotDraw.World
             RestoreAlteredFluorescentLight();
             RevealSecondDoor();
             SetFact(lightSwitchUsedFact, true);
+            lightRuleArmed = false;
             runner?.RequestExternalAdvance();
+        }
+
+        private void ApplyOpeningSwitchState(bool isOn)
+        {
+            lightRuleBlackoutActive = !isOn;
+            SetLightEnabled(lampLight, isOn);
+            SetLightEnabled(secondRoomLampLight, isOn);
+            SetLightEnabled(moonLight, false);
+
+            if (isOn)
+            {
+                RestoreAmbientLighting();
+            }
+            else
+            {
+                StartSwitchResidualDarkening();
+            }
+
+            if (isOn)
+            {
+                primaryLightBase = initialLampIntensity;
+                secondLightBase = initialSecondLampIntensity;
+                if (lampLight != null)
+                {
+                    lampLight.color = initialLampColor;
+                    lampLight.colorTemperature = initialLampColorTemperature;
+                }
+                if (secondRoomLampLight != null)
+                {
+                    secondRoomLampLight.color = initialSecondLampColor;
+                    secondRoomLampLight.colorTemperature = initialSecondLampColorTemperature;
+                }
+            }
+
+            if (ambientSource != null)
+            {
+                ambientSource.volume = isOn ? initialAmbientVolume : 0f;
+                if (isOn && !ambientSource.isPlaying)
+                {
+                    ambientSource.Play();
+                }
+            }
+
+            if (isOn)
+            {
+                StartClockLoop();
+            }
+            else
+            {
+                clockSource?.Stop();
+            }
+        }
+
+        private void StartSwitchResidualDarkening()
+        {
+            if (!ambientLightingCached)
+            {
+                return;
+            }
+            if (ambientDarkeningRoutine != null)
+            {
+                StopCoroutine(ambientDarkeningRoutine);
+            }
+            ambientDarkeningRoutine = StartCoroutine(SwitchResidualDarkeningRoutine());
+        }
+
+        private IEnumerator SwitchResidualDarkeningRoutine()
+        {
+            Color ambientLightStart = RenderSettings.ambientLight;
+            Color ambientSkyStart = RenderSettings.ambientSkyColor;
+            Color ambientEquatorStart = RenderSettings.ambientEquatorColor;
+            Color ambientGroundStart = RenderSettings.ambientGroundColor;
+            float reflectionStart = RenderSettings.reflectionIntensity;
+
+            Color ambientLightTarget = ScaleRgb(initialAmbientLight, switchResidualLightMultiplier);
+            Color ambientSkyTarget = ScaleRgb(initialAmbientSkyColor, switchResidualLightMultiplier);
+            Color ambientEquatorTarget = ScaleRgb(initialAmbientEquatorColor, switchResidualLightMultiplier);
+            Color ambientGroundTarget = ScaleRgb(initialAmbientGroundColor, switchResidualLightMultiplier);
+            float reflectionTarget = initialReflectionIntensity * switchResidualLightMultiplier;
+            float elapsed = 0f;
+
+            while (elapsed < switchResidualDarkeningDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / switchResidualDarkeningDuration);
+                t = t * t * (3f - 2f * t);
+                RenderSettings.ambientLight = Color.Lerp(ambientLightStart, ambientLightTarget, t);
+                RenderSettings.ambientSkyColor = Color.Lerp(ambientSkyStart, ambientSkyTarget, t);
+                RenderSettings.ambientEquatorColor = Color.Lerp(ambientEquatorStart, ambientEquatorTarget, t);
+                RenderSettings.ambientGroundColor = Color.Lerp(ambientGroundStart, ambientGroundTarget, t);
+                RenderSettings.reflectionIntensity = Mathf.Lerp(reflectionStart, reflectionTarget, t);
+                yield return null;
+            }
+
+            RenderSettings.ambientLight = ambientLightTarget;
+            RenderSettings.ambientSkyColor = ambientSkyTarget;
+            RenderSettings.ambientEquatorColor = ambientEquatorTarget;
+            RenderSettings.ambientGroundColor = ambientGroundTarget;
+            RenderSettings.reflectionIntensity = reflectionTarget;
+            ambientDarkeningRoutine = null;
+        }
+
+        private void RestoreAmbientLighting()
+        {
+            if (!ambientLightingCached)
+            {
+                return;
+            }
+            if (ambientDarkeningRoutine != null)
+            {
+                StopCoroutine(ambientDarkeningRoutine);
+                ambientDarkeningRoutine = null;
+            }
+            RenderSettings.ambientLight = initialAmbientLight;
+            RenderSettings.ambientSkyColor = initialAmbientSkyColor;
+            RenderSettings.ambientEquatorColor = initialAmbientEquatorColor;
+            RenderSettings.ambientGroundColor = initialAmbientGroundColor;
+            RenderSettings.reflectionIntensity = initialReflectionIntensity;
+        }
+
+        private static Color ScaleRgb(Color color, float multiplier)
+        {
+            return new Color(
+                color.r * multiplier,
+                color.g * multiplier,
+                color.b * multiplier,
+                color.a);
         }
 
         private IEnumerator ReenableSwitchAfterDarkHold(HorrorLightSwitchInteractable source)
@@ -641,6 +788,7 @@ namespace DoNotDraw.World
         private void RestoreAlteredFluorescentLight()
         {
             lightRuleBlackoutActive = false;
+            RestoreAmbientLighting();
             if (lampLight != null)
             {
                 lampLight.color = new Color(1f, 0.86f, 0.5f);
@@ -1632,6 +1780,8 @@ namespace DoNotDraw.World
         {
             cueBindings ??= new List<ClosedRoomCueBinding>();
             flickerAmplitude = Mathf.Clamp(flickerAmplitude, 0f, 0.05f);
+            switchResidualDarkeningDuration = Mathf.Max(0.05f, switchResidualDarkeningDuration);
+            switchResidualLightMultiplier = Mathf.Clamp01(switchResidualLightMultiplier);
             threatApproachDuration = Mathf.Max(1f, threatApproachDuration);
             focusedLookDot = Mathf.Clamp(focusedLookDot, 0.5f, 0.999f);
             windowGazeDuration = Mathf.Max(0.1f, windowGazeDuration);

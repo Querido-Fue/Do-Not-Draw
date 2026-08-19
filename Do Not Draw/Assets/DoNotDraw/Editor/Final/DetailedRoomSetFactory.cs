@@ -89,6 +89,7 @@ namespace DoNotDraw.Narrative.Editor
             }
 
             DetailedRoomSetRefs refs = new DetailedRoomSetRefs();
+            RemoveChildrenNamed(originalDesk.transform, "Back Apron");
             refs.FirstRoomSet = new GameObject("First Room - 6x4.8 Backrooms");
             refs.FirstRoomSet.transform.SetParent(parent, false);
             refs.SecondRoomSet = new GameObject("Second Room - Mirrored 6x4.8 Backrooms");
@@ -326,10 +327,6 @@ namespace DoNotDraw.Narrative.Editor
                 player,
                 false);
 
-            refs.ShadowCaster = BuildShadowCaster(
-                refs.SecondRoomSet.transform,
-                new Vector3(0f, 0.015f, SecondRoomCenterZ + 0.9f),
-                silhouetteMaterial);
             refs.EndingPortraitSilhouette = BuildPortrait(
                 refs.FirstRoomSet.transform,
                 new Vector3(-RoomWidth * 0.5f + 0.12f, 1.72f, 0.54f),
@@ -734,7 +731,7 @@ namespace DoNotDraw.Narrative.Editor
         {
             GameObject root = new GameObject("Already Drawn Card Four");
             root.transform.SetParent(parent, false);
-            root.transform.position = position;
+            root.transform.SetPositionAndRotation(position, Quaternion.Euler(0f, 180f, 0f));
             Material fallbackFace = AssetDatabase.LoadAssetAtPath<Material>(
                 "Assets/DoNotDraw/Materials/Cards/CardFront.mat") ?? material;
             Texture2D faceTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(PreplacedCardTexturePath);
@@ -933,15 +930,6 @@ namespace DoNotDraw.Narrative.Editor
             return trigger;
         }
 
-        private static Transform BuildShadowCaster(Transform parent, Vector3 position, Material material)
-        {
-            GameObject root = new GameObject("Unnatural Shadow Caster");
-            root.transform.SetParent(parent, false);
-            root.transform.position = position;
-            CreateCube("Impossible Shadow", root.transform, Vector3.zero, new Vector3(0.46f, 0.015f, 1.15f), material, false);
-            return root.transform;
-        }
-
         private static GameObject BuildPortrait(Transform parent, Vector3 position, Material frame, Material silhouette)
         {
             GameObject root = new GameObject("Ending Portrait Silhouette");
@@ -1032,6 +1020,19 @@ namespace DoNotDraw.Narrative.Editor
                 }
             }
             return null;
+        }
+
+        private static void RemoveChildrenNamed(Transform parent, string name)
+        {
+            for (int index = parent.childCount - 1; index >= 0; index--)
+            {
+                Transform child = parent.GetChild(index);
+                RemoveChildrenNamed(child, name);
+                if (string.Equals(child.name, name, StringComparison.Ordinal))
+                {
+                    UnityEngine.Object.DestroyImmediate(child.gameObject);
+                }
+            }
         }
 
         private static void Set(SerializedObject serialized, string propertyName, UnityEngine.Object value)

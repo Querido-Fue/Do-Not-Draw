@@ -55,6 +55,7 @@ MonoBehaviour:
     enterSignals: []
     activationSignals: []
     revealSignals:
+    - {fileID: 11400000, guid: 6886d420418185a4da85fba1428e3f5d, type: 2}
     - {fileID: 11400000, guid: 0bd091b9949e30b46b4b6ece572520aa, type: 2}
     completeSignals: []
     transitions: []
