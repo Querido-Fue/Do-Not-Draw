@@ -41,10 +41,13 @@ namespace DoNotDraw.Narrative
         private float deckBottomLocalY;
         private int initialDeckCardCount = 1;
         private int remainingCards = 1;
+        private float deckThicknessMultiplier = 1f;
         private bool visualStateCached;
 
         public bool IsPresenting { get; private set; }
         public int RemainingCards => remainingCards;
+        public GameObject LatestCard => runtimeCards.Count > 0 ? runtimeCards[runtimeCards.Count - 1] : null;
+        public Transform DisplayAnchor => displayAnchor;
 
         private void Awake()
         {
@@ -66,6 +69,7 @@ namespace DoNotDraw.Narrative
 
             initialDeckCardCount = Mathf.Max(1, deckSize);
             remainingCards = initialDeckCardCount;
+            deckThicknessMultiplier = 1f;
 
             if (cardTemplate != null)
             {
@@ -106,7 +110,7 @@ namespace DoNotDraw.Narrative
             card.name = $"Drawn Card {drawIndex + 1:00}";
             card.SetActive(true);
             runtimeCards.Add(card);
-            ApplyDefinition(card, definition, drawIndex);
+            Text faceLabel = ApplyDefinition(card, definition, drawIndex);
 
             Vector3 startPosition = deckTop.position + deckTop.up * 0.012f;
             Quaternion startRotation = deckTop.rotation * Quaternion.Euler(0f, 0f, 180f);
@@ -151,6 +155,8 @@ namespace DoNotDraw.Narrative
                 : landingSound, landingVolume);
             revealed?.Invoke(card);
 
+            yield return AnimateRevealEffects(card, faceLabel, definition);
+
             AudioClip voiceClip = definition?.VoiceClip;
             if (voiceClip != null)
             {
@@ -167,7 +173,7 @@ namespace DoNotDraw.Narrative
             presentationFinished?.Invoke();
         }
 
-        private void ApplyDefinition(GameObject card, CardDefinition definition, int drawIndex)
+        private Text ApplyDefinition(GameObject card, CardDefinition definition, int drawIndex)
         {
             Material accentMaterial = definition?.FaceAccentMaterial;
             if (accentMaterial == null && fallbackFaceAccentMaterials is { Length: > 0 })
@@ -190,11 +196,136 @@ namespace DoNotDraw.Narrative
             {
                 string faceText = definition?.FaceText ?? string.Empty;
                 faceLabel.text = faceText;
-                faceLabel.color = definition != null
+                Color textColor = definition != null
                     ? definition.FaceTextColor
                     : new Color(0.055f, 0.035f, 0.025f, 1f);
+                textColor.a = 0f;
+                faceLabel.color = textColor;
                 faceLabel.gameObject.SetActive(!string.IsNullOrWhiteSpace(faceText));
+                ApplyTypography(faceLabel, definition?.TypographyStage ?? CardTypographyStage.Clean);
             }
+
+            return faceLabel;
+        }
+
+        private static void ApplyTypography(Text label, CardTypographyStage stage)
+        {
+            if (label == null)
+            {
+                return;
+            }
+
+            RectTransform rect = label.rectTransform;
+            switch (stage)
+            {
+                case CardTypographyStage.Uneven:
+                    label.fontStyle = FontStyle.Bold;
+                    rect.localRotation = Quaternion.Euler(0f, 0f, 0.35f);
+                    break;
+                case CardTypographyStage.Damaged:
+                    label.fontStyle = FontStyle.BoldAndItalic;
+                    rect.localRotation = Quaternion.Euler(0f, 0f, -1.1f);
+                    break;
+                case CardTypographyStage.DoubleExposure:
+                    label.fontStyle = FontStyle.Bold;
+                    rect.localRotation = Quaternion.Euler(0f, 0f, 0.5f);
+                    break;
+                default:
+                    label.fontStyle = FontStyle.Normal;
+                    rect.localRotation = Quaternion.identity;
+                    break;
+            }
+        }
+
+        private IEnumerator AnimateRevealEffects(
+            GameObject card,
+            Text faceLabel,
+            CardDefinition definition)
+        {
+            float fadeDuration = definition != null ? definition.TextFadeDuration : 0.28f;
+            float liftDuration = definition != null && definition.LiftOnReveal
+                ? definition.RevealLiftDuration
+                : 0f;
+            float echoDuration = definition?.TypographyStage == CardTypographyStage.DoubleExposure
+                ? Mathf.Max(0.01f, definition.DoubleExposureDuration)
+                : 0f;
+            float duration = Mathf.Max(fadeDuration, liftDuration, echoDuration);
+            if (duration <= 0f)
+            {
+                SetTextAlpha(faceLabel, 1f);
+                yield break;
+            }
+
+            Text echo = CreateTextEcho(faceLabel, definition, out Vector2 echoStartPosition);
+            Vector3 basePosition = card.transform.position;
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float fadeT = fadeDuration <= 0f ? 1f : Mathf.Clamp01(elapsed / fadeDuration);
+                SetTextAlpha(faceLabel, fadeT * fadeT * (3f - 2f * fadeT));
+
+                if (liftDuration > 0f)
+                {
+                    float liftT = Mathf.Clamp01(elapsed / liftDuration);
+                    card.transform.position = basePosition
+                        + card.transform.up * (Mathf.Sin(liftT * Mathf.PI) * definition.RevealLiftHeight);
+                }
+
+                if (echo != null)
+                {
+                    float echoT = Mathf.Clamp01(elapsed / echoDuration);
+                    echo.rectTransform.anchoredPosition = Vector2.Lerp(echoStartPosition, Vector2.zero, echoT);
+                    SetTextAlpha(echo, Mathf.Sin(echoT * Mathf.PI) * 0.72f);
+                }
+
+                yield return null;
+            }
+
+            card.transform.position = basePosition;
+            SetTextAlpha(faceLabel, 1f);
+            if (echo != null)
+            {
+                Destroy(echo.gameObject);
+            }
+        }
+
+        private static Text CreateTextEcho(
+            Text source,
+            CardDefinition definition,
+            out Vector2 startPosition)
+        {
+            startPosition = new Vector2(3.5f, -1.5f);
+            if (source == null
+                || definition == null
+                || definition.TypographyStage != CardTypographyStage.DoubleExposure
+                || definition.DoubleExposureDuration <= 0f)
+            {
+                return null;
+            }
+
+            GameObject echoObject = Instantiate(source.gameObject, source.transform.parent);
+            echoObject.name = "Card Face Echo";
+            echoObject.transform.SetSiblingIndex(source.transform.GetSiblingIndex());
+            Text echo = echoObject.GetComponent<Text>();
+            Color echoColor = definition.FaceTextColor;
+            echoColor.r = Mathf.Clamp01(echoColor.r + 0.22f);
+            echoColor.a = 0f;
+            echo.color = echoColor;
+            echo.rectTransform.anchoredPosition = startPosition;
+            return echo;
+        }
+
+        private static void SetTextAlpha(Text label, float alpha)
+        {
+            if (label == null)
+            {
+                return;
+            }
+
+            Color color = label.color;
+            color.a = Mathf.Clamp01(alpha);
+            label.color = color;
         }
 
         private void CacheInitialVisualState()
@@ -218,7 +349,7 @@ namespace DoNotDraw.Narrative
 
             float remainingRatio = Mathf.Clamp01(remainingCards / (float)Mathf.Max(1, initialDeckCardCount));
             Vector3 newScale = initialDeckBodyScale;
-            newScale.y = initialDeckBodyScale.y * remainingRatio;
+            newScale.y = initialDeckBodyScale.y * remainingRatio * deckThicknessMultiplier;
             deckBody.localScale = newScale;
 
             Vector3 bodyPosition = deckBody.localPosition;
@@ -234,6 +365,12 @@ namespace DoNotDraw.Narrative
             }
 
             deckBody.gameObject.SetActive(remainingCards > 0);
+        }
+
+        public void SetDeckThicknessMultiplier(float multiplier)
+        {
+            deckThicknessMultiplier = Mathf.Max(0.05f, multiplier);
+            UpdateDeckVisual();
         }
 
         private void ClearRuntimeCards()
