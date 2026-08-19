@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using DoNotDraw.Audio;
 using DoNotDraw.Interaction;
+using DoNotDraw.UI;
 using DoNotDraw.World;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -1247,6 +1248,7 @@ namespace DoNotDraw.Narrative.Editor
                 primaryDeckObject,
                 openingGraffiti,
                 assets.Signals["reveal_opening_graffiti"]);
+            ConfigureResolutionIndependentUi(scene);
         }
 
         private static void BuildFirstRoomDoorWall(Transform parent, Material wall, Material doorMaterial)
@@ -1702,7 +1704,7 @@ namespace DoNotDraw.Narrative.Editor
             Canvas canvas = canvasObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 999;
-            canvasObject.AddComponent<CanvasScaler>();
+            ResolutionIndependentCanvas.Configure(canvas);
             CanvasGroup group = canvasObject.AddComponent<CanvasGroup>();
             group.alpha = 0f;
 
@@ -1746,15 +1748,7 @@ namespace DoNotDraw.Narrative.Editor
             canvas.overrideSorting = true;
             canvas.sortingOrder = 1000;
 
-            CanvasScaler scaler = popupRoot.GetComponent<CanvasScaler>();
-            if (scaler == null)
-            {
-                scaler = popupRoot.AddComponent<CanvasScaler>();
-            }
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
+            ResolutionIndependentCanvas.Configure(canvas);
 
             if (popupRoot.GetComponent<GraphicRaycaster>() == null)
             {
@@ -1776,6 +1770,7 @@ namespace DoNotDraw.Narrative.Editor
                     $"[Final Experience] {SettingsPopupPrefabPath} has no popup object assigned.");
             }
 
+            manager.ConfigureResponsiveLayout();
             popup.SetActive(false);
             EditorUtility.SetDirty(popupRoot);
             EditorUtility.SetDirty(popup);
@@ -1800,6 +1795,21 @@ namespace DoNotDraw.Narrative.Editor
             managerRoot.name = VolumeManagerRootName;
             managerRoot.SetActive(true);
             EditorUtility.SetDirty(managerRoot);
+        }
+
+        private static void ConfigureResolutionIndependentUi(Scene scene)
+        {
+            foreach (GameObject sceneRoot in scene.GetRootGameObjects())
+            {
+                foreach (Canvas canvas in sceneRoot.GetComponentsInChildren<Canvas>(true))
+                {
+                    CanvasScaler scaler = ResolutionIndependentCanvas.Configure(canvas);
+                    if (scaler != null)
+                    {
+                        EditorUtility.SetDirty(scaler);
+                    }
+                }
+            }
         }
 
         private static void ConfigureDetailedDirector(
@@ -1845,6 +1855,10 @@ namespace DoNotDraw.Narrative.Editor
             Set(serialized, "endingPortraitSilhouette", room.EndingPortraitSilhouette);
             Set(serialized, "lampLight", room.FirstLamp);
             Set(serialized, "secondRoomLampLight", room.SecondLamp);
+            SetObjectArray(
+                serialized.FindProperty("ceilingSurfaceRenderers"),
+                room.FirstRoomSurfaceRenderer,
+                room.SecondRoomSurfaceRenderer);
             Set(serialized, "moonLight", room.MoonLight);
             Set(serialized, "rearDoorRimLight", room.RearRimLight);
             Set(serialized, "firstRoomRimAnchor", room.FirstRearRimAnchor);
@@ -1868,7 +1882,7 @@ namespace DoNotDraw.Narrative.Editor
             Set(serialized, "enableClimaxThreat", false);
             Set(serialized, "flickerAmplitude", 0f);
             Set(serialized, "switchResidualDarkeningDuration", 1f);
-            Set(serialized, "switchResidualLightMultiplier", 0.2f);
+            Set(serialized, "switchResidualLightMultiplier", 0.48f);
             Set(serialized, "ambientSource", ambience);
             Set(serialized, "clockSource", clockSource);
             Set(serialized, "rearSource", rearSource);

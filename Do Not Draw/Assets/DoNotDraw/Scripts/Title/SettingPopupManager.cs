@@ -1,8 +1,10 @@
+using DoNotDraw.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class SettingPopupManager : MonoBehaviour
 {
+    private static readonly Vector2 PopupReferenceSize = new Vector2(1820f, 980f);
     private static SettingPopupManager instance = null;
 
     void Awake()
@@ -10,6 +12,7 @@ public class SettingPopupManager : MonoBehaviour
         if (null == instance)
         {
             instance = this;
+            ConfigureResponsiveLayout();
             DontDestroyOnLoad(this.gameObject);
         }
         else
@@ -38,6 +41,21 @@ public class SettingPopupManager : MonoBehaviour
 
     private float cachedBgmVolume;
     private float cachedSfxVolume;
+
+    public void ConfigureResponsiveLayout()
+    {
+        ResolutionIndependentCanvas.Configure(GetComponent<Canvas>());
+        if (popup == null || popup.transform is not RectTransform popupRect)
+        {
+            return;
+        }
+
+        popupRect.anchorMin = Vector2.one * 0.5f;
+        popupRect.anchorMax = Vector2.one * 0.5f;
+        popupRect.pivot = Vector2.one * 0.5f;
+        popupRect.anchoredPosition = Vector2.zero;
+        popupRect.sizeDelta = PopupReferenceSize;
+    }
 
     void Start()
     {

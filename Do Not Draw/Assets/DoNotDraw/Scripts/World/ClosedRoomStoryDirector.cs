@@ -50,6 +50,16 @@ namespace DoNotDraw.World
     {
         private const float EndingDurationSeconds = 5f;
         private const float EndingFadeSeconds = 1f;
+        private static readonly int CeilingEmissionColorId = Shader.PropertyToID("_Emission_Color");
+        private static readonly int CeilingEmissionMapId = Shader.PropertyToID("_Emission_Map");
+
+        private sealed class CeilingEmissionBinding
+        {
+            public Renderer Renderer;
+            public int MaterialIndex;
+            public Color InitialColor;
+            public MaterialPropertyBlock PropertyBlock;
+        }
 
         [Header("Narrative")]
         [SerializeField] private CardSequenceRunner runner;
@@ -81,6 +91,7 @@ namespace DoNotDraw.World
         [Header("Lights")]
         [SerializeField] private Light lampLight;
         [SerializeField] private Light secondRoomLampLight;
+        [SerializeField] private Renderer[] ceilingSurfaceRenderers = Array.Empty<Renderer>();
         [SerializeField] private Light moonLight;
         [SerializeField] private Light rearDoorRimLight;
         [SerializeField] private Transform firstRoomRimAnchor;
@@ -89,7 +100,7 @@ namespace DoNotDraw.World
         [SerializeField] private Light exitLight;
         [SerializeField, Range(0f, 0.05f)] private float flickerAmplitude;
         [SerializeField, Min(0.05f)] private float switchResidualDarkeningDuration = 1f;
-        [SerializeField, Range(0f, 1f)] private float switchResidualLightMultiplier = 0.2f;
+        [SerializeField, Range(0f, 1f)] private float switchResidualLightMultiplier = 0.48f;
 
         [Header("Doors And Switch")]
         [SerializeField] private HorrorLightSwitchInteractable lightSwitch;
@@ -157,6 +168,8 @@ namespace DoNotDraw.World
         private readonly List<(StorySignal signal, Action<StorySignalContext> handler)> subscriptions =
             new List<(StorySignal signal, Action<StorySignalContext> handler)>();
         private readonly List<Renderer> threatRenderers = new List<Renderer>();
+        private readonly List<CeilingEmissionBinding> ceilingEmissionBindings =
+            new List<CeilingEmissionBinding>();
 
         private RandomFootstepPlayer playerFootsteps;
         private float initialLampIntensity;
@@ -262,6 +275,7 @@ namespace DoNotDraw.World
             shadowInitialRotation = shadowCaster != null ? shadowCaster.localRotation : Quaternion.identity;
 
             CacheThreatMaterials();
+            CacheCeilingEmissionBindings();
             playerFootsteps?.SetAlternateSurface(false);
             ResetSceneState();
         }
@@ -322,6 +336,7 @@ namespace DoNotDraw.World
                 playerCamera.fieldOfView = initialCameraFov;
             }
             RestoreAmbientLighting();
+            SetCeilingEmissionMultiplier(1f);
             presenterSwitchRoutine = null;
         }
 
@@ -368,6 +383,7 @@ namespace DoNotDraw.World
             enterRuleRevealCount = 0;
             pendingCardDipMinimum = 0.84f;
             RestoreAmbientLighting();
+            SetCeilingEmissionMultiplier(1f);
 
             firstRoomSet?.SetActive(true);
             secondRoomSet?.SetActive(true);
@@ -624,6 +640,7 @@ namespace DoNotDraw.World
                 lightRuleBlackoutActive = true;
                 SetLightEnabled(lampLight, false);
                 SetLightEnabled(secondRoomLampLight, false);
+                SetCeilingEmissionMultiplier(0f);
                 SetLightEnabled(moonLight, true);
                 StartSwitchResidualDarkening();
                 if (ambientSource != null)
@@ -649,6 +666,7 @@ namespace DoNotDraw.World
             lightRuleBlackoutActive = !isOn;
             SetLightEnabled(lampLight, isOn);
             SetLightEnabled(secondRoomLampLight, isOn);
+            SetCeilingEmissionMultiplier(isOn ? 1f : 0f);
             SetLightEnabled(moonLight, false);
 
             if (isOn)
@@ -801,6 +819,7 @@ namespace DoNotDraw.World
             }
             SetLightEnabled(lampLight, true);
             SetLightEnabled(secondRoomLampLight, true);
+            SetCeilingEmissionMultiplier(1f);
             if (ambientSource != null)
             {
                 ambientSource.volume = initialAmbientVolume;
@@ -1423,6 +1442,7 @@ namespace DoNotDraw.World
             endingPortraitSilhouette?.SetActive(false);
             SetLightEnabled(lampLight, true);
             SetLightEnabled(secondRoomLampLight, false);
+            SetCeilingEmissionMultiplier(1f);
             SetLightEnabled(moonLight, false);
             SetLightEnabled(rearDoorRimLight, false);
             SetLightEnabled(silhouetteBacklight, false);
@@ -1676,6 +1696,57 @@ namespace DoNotDraw.World
             }
         }
 
+        private void CacheCeilingEmissionBindings()
+        {
+            ceilingEmissionBindings.Clear();
+            foreach (Renderer surfaceRenderer in ceilingSurfaceRenderers)
+            {
+                if (surfaceRenderer == null)
+                {
+                    continue;
+                }
+
+                Material[] materials = surfaceRenderer.sharedMaterials;
+                for (int materialIndex = 0; materialIndex < materials.Length; materialIndex++)
+                {
+                    Material material = materials[materialIndex];
+                    if (material == null
+                        || !material.HasProperty(CeilingEmissionColorId)
+                        || !material.HasProperty(CeilingEmissionMapId)
+                        || material.GetTexture(CeilingEmissionMapId) == null)
+                    {
+                        continue;
+                    }
+
+                    ceilingEmissionBindings.Add(new CeilingEmissionBinding
+                    {
+                        Renderer = surfaceRenderer,
+                        MaterialIndex = materialIndex,
+                        InitialColor = material.GetColor(CeilingEmissionColorId),
+                        PropertyBlock = new MaterialPropertyBlock()
+                    });
+                }
+            }
+        }
+
+        private void SetCeilingEmissionMultiplier(float multiplier)
+        {
+            multiplier = Mathf.Clamp01(multiplier);
+            foreach (CeilingEmissionBinding binding in ceilingEmissionBindings)
+            {
+                if (binding.Renderer == null)
+                {
+                    continue;
+                }
+
+                binding.Renderer.GetPropertyBlock(binding.PropertyBlock, binding.MaterialIndex);
+                binding.PropertyBlock.SetColor(
+                    CeilingEmissionColorId,
+                    ScaleRgb(binding.InitialColor, multiplier));
+                binding.Renderer.SetPropertyBlock(binding.PropertyBlock, binding.MaterialIndex);
+            }
+        }
+
         private void SetThreatAlpha(float alpha)
         {
             foreach (Renderer renderer in threatRenderers)
@@ -1779,6 +1850,7 @@ namespace DoNotDraw.World
         private void OnValidate()
         {
             cueBindings ??= new List<ClosedRoomCueBinding>();
+            ceilingSurfaceRenderers ??= Array.Empty<Renderer>();
             flickerAmplitude = Mathf.Clamp(flickerAmplitude, 0f, 0.05f);
             switchResidualDarkeningDuration = Mathf.Max(0.05f, switchResidualDarkeningDuration);
             switchResidualLightMultiplier = Mathf.Clamp01(switchResidualLightMultiplier);

@@ -18,6 +18,8 @@ namespace DoNotDraw.Narrative.Editor
         public CardDeckInteraction SecondInteraction;
         public Light FirstLamp;
         public Light SecondLamp;
+        public Renderer FirstRoomSurfaceRenderer;
+        public Renderer SecondRoomSurfaceRenderer;
         public Light MoonLight;
         public Light RearRimLight;
         public Light SilhouetteBacklight;
@@ -106,8 +108,20 @@ namespace DoNotDraw.Narrative.Editor
                 playerController.skinWidth = 0.02f;
             }
 
-            BuildFirstRoomShell(refs.FirstRoomSet.transform, wall, floor, ceiling, ceilingGrid, wallTrim);
-            BuildSecondRoomShell(refs.SecondRoomSet.transform, wall, floor, ceiling, ceilingGrid, wallTrim);
+            refs.FirstRoomSurfaceRenderer = BuildFirstRoomShell(
+                refs.FirstRoomSet.transform,
+                wall,
+                floor,
+                ceiling,
+                ceilingGrid,
+                wallTrim);
+            refs.SecondRoomSurfaceRenderer = BuildSecondRoomShell(
+                refs.SecondRoomSet.transform,
+                wall,
+                floor,
+                ceiling,
+                ceilingGrid,
+                wallTrim);
 
             originalDesk.transform.position = Vector3.zero;
             originalDesk.transform.rotation = Quaternion.identity;
@@ -338,7 +352,7 @@ namespace DoNotDraw.Narrative.Editor
             return refs;
         }
 
-        private static void BuildFirstRoomShell(
+        private static Renderer BuildFirstRoomShell(
             Transform parent,
             Material wall,
             Material floor,
@@ -346,7 +360,14 @@ namespace DoNotDraw.Narrative.Editor
             Material ceilingGrid,
             Material wallTrim)
         {
-            BuildSharedShell(parent, 0f, wall, floor, ceiling, ceilingGrid, wallTrim);
+            Renderer surfaceRenderer = BuildSharedShell(
+                parent,
+                0f,
+                wall,
+                floor,
+                ceiling,
+                ceilingGrid,
+                wallTrim);
             CreateCube("First South Wall", parent, new Vector3(0f, 1.5f, -RoomDepth * 0.5f), new Vector3(RoomWidth, 3.2f, 0.18f), wall);
             CreateHorizontalBaseboard(
                 parent,
@@ -355,9 +376,10 @@ namespace DoNotDraw.Narrative.Editor
                 RoomWidth * 0.5f,
                 -RoomDepth * 0.5f + 0.115f,
                 wallTrim);
+            return surfaceRenderer;
         }
 
-        private static void BuildSecondRoomShell(
+        private static Renderer BuildSecondRoomShell(
             Transform parent,
             Material wall,
             Material floor,
@@ -365,7 +387,14 @@ namespace DoNotDraw.Narrative.Editor
             Material ceilingGrid,
             Material wallTrim)
         {
-            BuildSharedShell(parent, SecondRoomCenterZ, wall, floor, ceiling, ceilingGrid, wallTrim);
+            Renderer surfaceRenderer = BuildSharedShell(
+                parent,
+                SecondRoomCenterZ,
+                wall,
+                floor,
+                ceiling,
+                ceilingGrid,
+                wallTrim);
             float openingLeft = SecondDoorX - DoorWidth * 0.5f;
             float openingRight = SecondDoorX + DoorWidth * 0.5f;
             float leftWidth = openingLeft + RoomWidth * 0.5f;
@@ -403,9 +432,10 @@ namespace DoNotDraw.Narrative.Editor
                 RoomWidth * 0.5f,
                 interiorBaseboardZ,
                 wallTrim);
+            return surfaceRenderer;
         }
 
-        private static void BuildSharedShell(
+        private static Renderer BuildSharedShell(
             Transform parent,
             float centerZ,
             Material wall,
@@ -428,7 +458,7 @@ namespace DoNotDraw.Narrative.Editor
                 ceiling);
             SetRendererEnabled(floorCollider, false);
             SetRendererEnabled(ceilingCollider, false);
-            BuildBackroomsAssetSurfaceShell(parent, centerZ, floor);
+            Renderer surfaceRenderer = BuildBackroomsAssetSurfaceShell(parent, centerZ, floor);
             BuildCeilingPerimeterFrame(parent, centerZ, ceilingGrid);
             CreateCube("West Wallpaper Wall", parent, new Vector3(-RoomWidth * 0.5f, 1.5f, centerZ), new Vector3(0.18f, 3.2f, RoomDepth), wall);
             CreateCube("East Wallpaper Wall", parent, new Vector3(RoomWidth * 0.5f, 1.5f, centerZ), new Vector3(0.18f, 3.2f, RoomDepth), wall);
@@ -446,9 +476,10 @@ namespace DoNotDraw.Narrative.Editor
                 new Vector3(0.07f, 0.16f, RoomDepth - 0.2f),
                 wallTrim,
                 false);
+            return surfaceRenderer;
         }
 
-        private static void BuildBackroomsAssetSurfaceShell(
+        private static Renderer BuildBackroomsAssetSurfaceShell(
             Transform parent,
             float centerZ,
             Material floorMaterial)
@@ -495,6 +526,7 @@ namespace DoNotDraw.Narrative.Editor
 
             surfaceMaterials[0] = floorMaterial;
             surfaceRenderer.sharedMaterials = surfaceMaterials;
+            return surfaceRenderer;
         }
 
         private static void BuildCeilingPerimeterFrame(Transform parent, float centerZ, Material material)
