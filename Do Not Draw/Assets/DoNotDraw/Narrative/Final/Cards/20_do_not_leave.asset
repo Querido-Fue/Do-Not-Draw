@@ -22,6 +22,12 @@ MonoBehaviour:
   voiceClip: {fileID: 8300000, guid: ed1576bdd7962114c92aeaf9e0a538f3, type: 3}
   voiceVolume: 0.82
   voiceDelay: 0.16
+  textFadeDuration: 0.32
+  typographyStage: 3
+  doubleExposureDuration: 0.18
+  liftOnReveal: 0
+  revealLiftHeight: 0.045
+  revealLiftDuration: 0.4
   tags:
   - final
   - flow-authority
