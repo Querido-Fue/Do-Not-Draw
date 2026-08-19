@@ -75,8 +75,6 @@ namespace DoNotDraw.Narrative.Editor
             Material ceiling,
             Material ceilingGrid,
             Material wallTrim,
-            Material fluorescentFrame,
-            Material fluorescentEmitter,
             Material doorMaterial,
             Material wood,
             Material brass,
@@ -118,8 +116,6 @@ namespace DoNotDraw.Narrative.Editor
                 "First Room Fluorescent Ceiling Rig",
                 refs.FirstRoomSet.transform,
                 0f,
-                fluorescentFrame,
-                fluorescentEmitter,
                 24f);
 
             GameObject secondDesk = UnityEngine.Object.Instantiate(originalDesk, refs.SecondRoomSet.transform);
@@ -147,8 +143,6 @@ namespace DoNotDraw.Narrative.Editor
                 "Second Room Fluorescent Ceiling Rig",
                 refs.SecondRoomSet.transform,
                 SecondRoomCenterZ,
-                fluorescentFrame,
-                fluorescentEmitter,
                 22f);
 
             refs.FirstClockHand = BuildClock(
@@ -434,7 +428,7 @@ namespace DoNotDraw.Narrative.Editor
                 ceiling);
             SetRendererEnabled(floorCollider, false);
             SetRendererEnabled(ceilingCollider, false);
-            BuildBackroomsAssetSurfaceShell(parent, centerZ);
+            BuildBackroomsAssetSurfaceShell(parent, centerZ, floor);
             BuildCeilingPerimeterFrame(parent, centerZ, ceilingGrid);
             CreateCube("West Wallpaper Wall", parent, new Vector3(-RoomWidth * 0.5f, 1.5f, centerZ), new Vector3(0.18f, 3.2f, RoomDepth), wall);
             CreateCube("East Wallpaper Wall", parent, new Vector3(RoomWidth * 0.5f, 1.5f, centerZ), new Vector3(0.18f, 3.2f, RoomDepth), wall);
@@ -454,7 +448,10 @@ namespace DoNotDraw.Narrative.Editor
                 false);
         }
 
-        private static void BuildBackroomsAssetSurfaceShell(Transform parent, float centerZ)
+        private static void BuildBackroomsAssetSurfaceShell(
+            Transform parent,
+            float centerZ,
+            Material floorMaterial)
         {
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(BackroomsSurfacePrefabPath);
             if (prefab == null)
@@ -482,11 +479,22 @@ namespace DoNotDraw.Narrative.Editor
                 UnityEngine.Object.DestroyImmediate(collider);
             }
 
-            if (surface.GetComponentInChildren<Renderer>(true) == null)
+            Renderer surfaceRenderer = surface.GetComponentInChildren<Renderer>(true);
+            if (surfaceRenderer == null)
             {
                 throw new InvalidOperationException(
                     $"The backrooms surface prefab at '{BackroomsSurfacePrefabPath}' has no renderer.");
             }
+
+            Material[] surfaceMaterials = surfaceRenderer.sharedMaterials;
+            if (surfaceMaterials.Length < 2)
+            {
+                throw new InvalidOperationException(
+                    $"The backrooms surface prefab at '{BackroomsSurfacePrefabPath}' must expose separate floor and ceiling material slots.");
+            }
+
+            surfaceMaterials[0] = floorMaterial;
+            surfaceRenderer.sharedMaterials = surfaceMaterials;
         }
 
         private static void BuildCeilingPerimeterFrame(Transform parent, float centerZ, Material material)
@@ -754,32 +762,11 @@ namespace DoNotDraw.Narrative.Editor
             string name,
             Transform parent,
             float centerZ,
-            Material frameMaterial,
-            Material emitterMaterial,
             float intensity)
         {
             GameObject root = new GameObject(name);
             root.transform.SetParent(parent, false);
             root.transform.position = new Vector3(0f, 2.62f, centerZ);
-
-            Vector3[] fixturePositions =
-            {
-                new Vector3(-1.55f, 0.36f, -1.2f),
-                new Vector3(0f, 0.36f, -1.2f),
-                new Vector3(1.55f, 0.36f, -1.2f),
-                new Vector3(-1.55f, 0.36f, 1.2f),
-                new Vector3(0f, 0.36f, 1.2f),
-                new Vector3(1.55f, 0.36f, 1.2f)
-            };
-            for (int index = 0; index < fixturePositions.Length; index++)
-            {
-                BuildFluorescentFixture(
-                    root.transform,
-                    $"Large Fluorescent Diffuser {index + 1:00}",
-                    fixturePositions[index],
-                    frameMaterial,
-                    emitterMaterial);
-            }
 
             Light light = root.AddComponent<Light>();
             light.type = LightType.Point;
@@ -792,33 +779,6 @@ namespace DoNotDraw.Narrative.Editor
             light.shadows = LightShadows.Soft;
             light.shadowStrength = 0.55f;
             return light;
-        }
-
-        private static void BuildFluorescentFixture(
-            Transform parent,
-            string name,
-            Vector3 localPosition,
-            Material frameMaterial,
-            Material emitterMaterial)
-        {
-            GameObject fixture = new GameObject(name);
-            fixture.transform.SetParent(parent, false);
-            fixture.transform.localPosition = localPosition;
-
-            CreateCube(
-                "Diffuser Frame",
-                fixture.transform,
-                Vector3.zero,
-                new Vector3(1.12f, 0.045f, 0.82f),
-                frameMaterial,
-                false);
-            CreateCube(
-                "Luminous Diffuser Panel",
-                fixture.transform,
-                new Vector3(0f, -0.031f, 0f),
-                new Vector3(1.02f, 0.024f, 0.72f),
-                emitterMaterial,
-                false);
         }
 
         private static Transform BuildClock(string name, Transform parent, Vector3 position, Material wood, Material metal)

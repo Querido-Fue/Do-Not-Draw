@@ -30,11 +30,14 @@ namespace DoNotDraw.Narrative.Editor
         private const string FinalMaterialRoot = "Assets/DoNotDraw/Materials/Final";
         private const string BackroomsTextureRoot = "Assets/DoNotDraw/Textures/Backrooms";
         private const string BackroomsWallpaperPath = BackroomsTextureRoot + "/BackroomsWallpaper_Tileable.png";
-        private const string BackroomsCarpetPath = BackroomsTextureRoot + "/BackroomsCarpet_Tileable.png";
         private const string BackroomsAssetMaterialRoot =
             "Assets/Asset/BackroomsLikeAsset/material";
+        private const string BackroomsSourceCarpetMaterialPath =
+            BackroomsAssetMaterialRoot + "/Floor_Carpet_Mat.mat";
         private const string BackroomsTrimMaterialPath =
             BackroomsAssetMaterialRoot + "/Wall_trim_mat.mat";
+        private const string BackroomsTintedCarpetMaterialPath =
+            FinalMaterialRoot + "/BackroomsAssetCarpetTinted.mat";
         private const string CardArtRoot = "Assets/Art/Card";
         private const string VoiceSourcePath = "Assets/Sounds/voice.mp3";
         private const string VoiceOutputRoot = "Assets/Sounds/voice";
@@ -949,6 +952,35 @@ namespace DoNotDraw.Narrative.Editor
             return material;
         }
 
+        private static Material GetOrCreateBackroomsCarpetMaterial()
+        {
+            Material source = LoadRequiredMaterial(BackroomsSourceCarpetMaterialPath);
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(
+                BackroomsTintedCarpetMaterialPath);
+            if (material == null)
+            {
+                material = new Material(source);
+                material.name = "Backrooms Asset Carpet - Warm Beige";
+                AssetDatabase.CreateAsset(material, BackroomsTintedCarpetMaterialPath);
+            }
+            else
+            {
+                if (material.shader != source.shader)
+                {
+                    material.shader = source.shader;
+                }
+
+                material.CopyPropertiesFromMaterial(source);
+            }
+
+            material.SetColor("_ColorOverlay", new Color(0.78f, 0.7f, 0.5f, 1f));
+            material.SetFloat("_ColorOverlayOpacity", 0.62f);
+            material.SetFloat("_Normal_Strength", 0.22f);
+            material.SetFloat("_Smoothness", 0.11f);
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
         private static void BuildScene(Scene scene, NarrativeAssets assets)
         {
             GameObject oldRoot = FindSceneObject(scene, FinalRootName);
@@ -1000,12 +1032,7 @@ namespace DoNotDraw.Narrative.Editor
                 new Color(0.9f, 0.92f, 0.86f, 1f),
                 0.58f,
                 0.025f);
-            Material floor = GetOrCreateWorldSpaceSurfaceMaterial(
-                $"{FinalMaterialRoot}/BackroomsCarpet.mat",
-                BackroomsCarpetPath,
-                new Color(0.94f, 0.94f, 0.88f, 1f),
-                1.35f,
-                0.015f);
+            Material floor = GetOrCreateBackroomsCarpetMaterial();
             Material ceiling = GetOrCreateMaterial(
                 $"{FinalMaterialRoot}/BackroomsCeilingTile.mat",
                 new Color(0.7f, 0.68f, 0.49f, 1f),
@@ -1019,18 +1046,6 @@ namespace DoNotDraw.Narrative.Editor
                 0.12f,
                 true);
             Material wallTrim = LoadRequiredMaterial(BackroomsTrimMaterialPath);
-            Material fluorescentFrame = GetOrCreateMaterial(
-                $"{FinalMaterialRoot}/BackroomsFluorescentFrame.mat",
-                new Color(0.29f, 0.3f, 0.27f, 1f),
-                0.18f,
-                0.16f,
-                true);
-            Material fluorescentEmitter = GetOrCreateMaterial(
-                $"{FinalMaterialRoot}/BackroomsFluorescentEmitter.mat",
-                new Color(3.1f, 3.15f, 2.8f, 1f),
-                0f,
-                0f,
-                true);
             Material wood = GetOrCreateMaterial(
                 $"{FinalMaterialRoot}/BackroomsAgedWood.mat",
                 new Color(0.23f, 0.15f, 0.075f, 1f),
@@ -1114,8 +1129,6 @@ namespace DoNotDraw.Narrative.Editor
                 ceiling,
                 ceilingGrid,
                 wallTrim,
-                fluorescentFrame,
-                fluorescentEmitter,
                 doorMaterial,
                 wood,
                 brass,
