@@ -42,8 +42,9 @@ public static class DisplaySettings
     static void Apply() => Shader.SetGlobalFloat(GammaId, Gamma);
 
     public static float SliderToGamma(float t)
-        => Mathf.Pow(2f, Mathf.Lerp(-1f, 1f, Mathf.Clamp01(t)));
+    => Mathf.Pow(2f, Mathf.Lerp(Mathf.Log(MinGamma, 2f), Mathf.Log(MaxGamma, 2f), Mathf.Clamp01(t)));
 
     public static float GammaToSlider(float g)
-        => Mathf.InverseLerp(-1f, 1f, Mathf.Log(Mathf.Clamp(g, MinGamma, MaxGamma), 2f));
+        => Mathf.InverseLerp(Mathf.Log(MinGamma, 2f), Mathf.Log(MaxGamma, 2f),
+             Mathf.Log(Mathf.Clamp(g, MinGamma, MaxGamma), 2f));
 }
