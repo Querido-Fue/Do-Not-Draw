@@ -57,6 +57,8 @@ namespace DoNotDraw.Narrative.Editor
             "Assets/Art/Card/Card3_DoNotOpenTheSecondDoor.png";
         private const string PreplacedCardMaterialPath =
             "Assets/DoNotDraw/Materials/Final/PreplacedCardFour.mat";
+        private const string ThreatEntityPrefabPath =
+            "Assets/ExternalModels/BackroomsEntity/BackroomsEntity.prefab";
 
         public static DetailedRoomSetRefs Build(
             Transform parent,
@@ -65,6 +67,9 @@ namespace DoNotDraw.Narrative.Editor
             Material wall,
             Material floor,
             Material ceiling,
+            Material ceilingGrid,
+            Material fluorescentFrame,
+            Material fluorescentEmitter,
             Material doorMaterial,
             Material wood,
             Material brass,
@@ -83,9 +88,9 @@ namespace DoNotDraw.Narrative.Editor
             }
 
             DetailedRoomSetRefs refs = new DetailedRoomSetRefs();
-            refs.FirstRoomSet = new GameObject("First Room - 6x4.8 Concrete");
+            refs.FirstRoomSet = new GameObject("First Room - 6x4.8 Backrooms");
             refs.FirstRoomSet.transform.SetParent(parent, false);
-            refs.SecondRoomSet = new GameObject("Second Room - Mirrored 6x4.8 Concrete");
+            refs.SecondRoomSet = new GameObject("Second Room - Mirrored 6x4.8 Backrooms");
             refs.SecondRoomSet.transform.SetParent(parent, false);
 
             CharacterController playerController = player.GetComponent<CharacterController>();
@@ -95,19 +100,19 @@ namespace DoNotDraw.Narrative.Editor
                 playerController.skinWidth = 0.02f;
             }
 
-            BuildFirstRoomShell(refs.FirstRoomSet.transform, wall, floor, ceiling);
-            BuildSecondRoomShell(refs.SecondRoomSet.transform, wall, floor, ceiling);
+            BuildFirstRoomShell(refs.FirstRoomSet.transform, wall, floor, ceiling, ceilingGrid);
+            BuildSecondRoomShell(refs.SecondRoomSet.transform, wall, floor, ceiling, ceilingGrid);
 
             originalDesk.transform.position = Vector3.zero;
             originalDesk.transform.rotation = Quaternion.identity;
             originalDesk.transform.localScale = Vector3.one;
-            refs.FirstLamp = BuildTableLamp(
-                "First Table Lamp",
+            refs.FirstLamp = BuildFluorescentCeilingRig(
+                "First Room Fluorescent Ceiling Rig",
                 refs.FirstRoomSet.transform,
-                new Vector3(0.7f, 0.84f, 0.06f),
-                brass,
-                curtainMaterial,
-                12f);
+                0f,
+                fluorescentFrame,
+                fluorescentEmitter,
+                24f);
 
             GameObject secondDesk = UnityEngine.Object.Instantiate(originalDesk, refs.SecondRoomSet.transform);
             secondDesk.name = "Desk - Second Room";
@@ -130,13 +135,13 @@ namespace DoNotDraw.Narrative.Editor
             }
             refs.SecondPresenter = deckObject.GetComponent<CardDeckPresenter>();
             refs.SecondInteraction = deckObject.GetComponent<CardDeckInteraction>();
-            refs.SecondLamp = BuildTableLamp(
-                "Second Table Lamp",
+            refs.SecondLamp = BuildFluorescentCeilingRig(
+                "Second Room Fluorescent Ceiling Rig",
                 refs.SecondRoomSet.transform,
-                new Vector3(0.7f, 0.84f, SecondRoomCenterZ + 0.06f),
-                brass,
-                curtainMaterial,
-                10.8f);
+                SecondRoomCenterZ,
+                fluorescentFrame,
+                fluorescentEmitter,
+                22f);
 
             BuildChair("First Room Empty Chair", refs.FirstRoomSet.transform, new Vector3(0f, 0f, 1.15f), wood, false);
             BuildChair("Second Room Reversed Chair", refs.SecondRoomSet.transform, new Vector3(0f, 0f, SecondRoomCenterZ + 1.15f), wood, true);
@@ -208,12 +213,11 @@ namespace DoNotDraw.Narrative.Editor
             refs.WindowVision.SetActive(false);
             BuildPreplacedCard(refs.SecondRoomSet.transform, new Vector3(-0.58f, 0.86f, SecondRoomCenterZ + 0.1f), doorMaterial);
 
-            GameObject threat = BuildSilhouette(
+            GameObject threat = BuildThreatEntity(
                 "Approaching Silhouette",
                 refs.SecondRoomSet.transform,
                 new Vector3(0f, 0f, SecondNorthWallZ - 0.46f),
-                silhouetteMaterial,
-                0.86f);
+                silhouetteMaterial);
             refs.Threat = threat.transform;
             refs.ThreatStart = CreateMarker(
                 refs.SecondRoomSet.transform,
@@ -328,15 +332,25 @@ namespace DoNotDraw.Narrative.Editor
             return refs;
         }
 
-        private static void BuildFirstRoomShell(Transform parent, Material wall, Material floor, Material ceiling)
+        private static void BuildFirstRoomShell(
+            Transform parent,
+            Material wall,
+            Material floor,
+            Material ceiling,
+            Material ceilingGrid)
         {
-            BuildSharedShell(parent, 0f, wall, floor, ceiling);
+            BuildSharedShell(parent, 0f, wall, floor, ceiling, ceilingGrid);
             CreateCube("First South Wall", parent, new Vector3(0f, 1.5f, -RoomDepth * 0.5f), new Vector3(RoomWidth, 3.2f, 0.18f), wall);
         }
 
-        private static void BuildSecondRoomShell(Transform parent, Material wall, Material floor, Material ceiling)
+        private static void BuildSecondRoomShell(
+            Transform parent,
+            Material wall,
+            Material floor,
+            Material ceiling,
+            Material ceilingGrid)
         {
-            BuildSharedShell(parent, SecondRoomCenterZ, wall, floor, ceiling);
+            BuildSharedShell(parent, SecondRoomCenterZ, wall, floor, ceiling, ceilingGrid);
             float openingLeft = SecondDoorX - DoorWidth * 0.5f;
             float openingRight = SecondDoorX + DoorWidth * 0.5f;
             float leftWidth = openingLeft + RoomWidth * 0.5f;
@@ -361,12 +375,53 @@ namespace DoNotDraw.Narrative.Editor
                 wall);
         }
 
-        private static void BuildSharedShell(Transform parent, float centerZ, Material wall, Material floor, Material ceiling)
+        private static void BuildSharedShell(
+            Transform parent,
+            float centerZ,
+            Material wall,
+            Material floor,
+            Material ceiling,
+            Material ceilingGrid)
         {
-            CreateCube("Wood Floor", parent, new Vector3(0f, -0.1f, centerZ), new Vector3(RoomWidth, 0.2f, RoomDepth), floor);
-            CreateCube("Aged Ceiling", parent, new Vector3(0f, RoomHeight + 0.1f, centerZ), new Vector3(RoomWidth, 0.2f, RoomDepth), ceiling);
-            CreateCube("West Concrete Wall", parent, new Vector3(-RoomWidth * 0.5f, 1.5f, centerZ), new Vector3(0.18f, 3.2f, RoomDepth), wall);
-            CreateCube("East Concrete Wall", parent, new Vector3(RoomWidth * 0.5f, 1.5f, centerZ), new Vector3(0.18f, 3.2f, RoomDepth), wall);
+            CreateCube("Backrooms Carpet", parent, new Vector3(0f, -0.1f, centerZ), new Vector3(RoomWidth, 0.2f, RoomDepth), floor);
+            CreateCube("Drop Ceiling Backing", parent, new Vector3(0f, RoomHeight + 0.1f, centerZ), new Vector3(RoomWidth, 0.2f, RoomDepth), ceiling);
+            BuildDropCeilingGrid(parent, centerZ, ceilingGrid);
+            CreateCube("West Wallpaper Wall", parent, new Vector3(-RoomWidth * 0.5f, 1.5f, centerZ), new Vector3(0.18f, 3.2f, RoomDepth), wall);
+            CreateCube("East Wallpaper Wall", parent, new Vector3(RoomWidth * 0.5f, 1.5f, centerZ), new Vector3(0.18f, 3.2f, RoomDepth), wall);
+        }
+
+        private static void BuildDropCeilingGrid(Transform parent, float centerZ, Material material)
+        {
+            const float cellSize = 0.6f;
+            const float railThickness = 0.026f;
+            const float railDepth = 0.032f;
+            float undersideY = RoomHeight - railDepth * 0.5f;
+
+            int columns = Mathf.RoundToInt(RoomWidth / cellSize);
+            for (int column = 0; column <= columns; column++)
+            {
+                float x = -RoomWidth * 0.5f + column * cellSize;
+                CreateCube(
+                    $"Ceiling Grid X {column:00}",
+                    parent,
+                    new Vector3(x, undersideY, centerZ),
+                    new Vector3(railThickness, railDepth, RoomDepth),
+                    material,
+                    false);
+            }
+
+            int rows = Mathf.RoundToInt(RoomDepth / cellSize);
+            for (int row = 0; row <= rows; row++)
+            {
+                float z = centerZ - RoomDepth * 0.5f + row * cellSize;
+                CreateCube(
+                    $"Ceiling Grid Z {row:00}",
+                    parent,
+                    new Vector3(0f, undersideY, z),
+                    new Vector3(RoomWidth, railDepth, railThickness),
+                    material,
+                    false);
+            }
         }
 
         private static void BuildNorthWallFeatures(
@@ -453,7 +508,7 @@ namespace DoNotDraw.Narrative.Editor
                     doorSlam,
                     true);
                 cover = CreateCube(
-                    "Second Door Concealing Concrete Wall",
+                    "Second Door Concealing Wallpaper Wall",
                     parent,
                     new Vector3(SecondDoorX, DoorHeight * 0.5f, wallZ - 0.19f),
                     new Vector3(DoorWidth + 0.04f, DoorHeight, 0.08f),
@@ -554,33 +609,77 @@ namespace DoNotDraw.Narrative.Editor
             target = CreateMarker(root.transform, "Window Gaze Target", Vector3.zero, Quaternion.identity, true);
         }
 
-        private static Light BuildTableLamp(
+        private static Light BuildFluorescentCeilingRig(
             string name,
             Transform parent,
-            Vector3 position,
-            Material metal,
-            Material shadeMaterial,
+            float centerZ,
+            Material frameMaterial,
+            Material emitterMaterial,
             float intensity)
         {
             GameObject root = new GameObject(name);
             root.transform.SetParent(parent, false);
-            root.transform.position = position;
-            GameObject baseObject = CreatePrimitive(PrimitiveType.Cylinder, "Lamp Base", root.transform, false, metal);
-            baseObject.transform.localPosition = new Vector3(0f, 0.035f, 0f);
-            baseObject.transform.localScale = new Vector3(0.18f, 0.035f, 0.18f);
-            CreateCube("Lamp Stem", root.transform, new Vector3(0f, 0.26f, 0f), new Vector3(0.035f, 0.48f, 0.035f), metal, false);
-            GameObject shade = CreatePrimitive(PrimitiveType.Cylinder, "Lamp Shade", root.transform, false, shadeMaterial);
-            shade.transform.localPosition = new Vector3(0f, 0.56f, 0f);
-            shade.transform.localScale = new Vector3(0.28f, 0.18f, 0.28f);
+            root.transform.position = new Vector3(0f, 2.62f, centerZ);
+
+            Vector3[] fixturePositions =
+            {
+                new Vector3(-1.45f, 0.29f, -1.42f),
+                new Vector3(0.95f, 0.29f, -0.5f),
+                new Vector3(-0.75f, 0.29f, 0.48f),
+                new Vector3(1.35f, 0.29f, 1.43f)
+            };
+            for (int index = 0; index < fixturePositions.Length; index++)
+            {
+                BuildFluorescentFixture(
+                    root.transform,
+                    $"Fluorescent Troffer {index + 1:00}",
+                    fixturePositions[index],
+                    frameMaterial,
+                    emitterMaterial);
+            }
+
             Light light = root.AddComponent<Light>();
             light.type = LightType.Point;
-            light.color = new Color(1f, 0.73f, 0.46f);
+            light.color = new Color(1f, 0.98f, 0.9f);
             light.useColorTemperature = true;
-            light.colorTemperature = 2700f;
+            light.colorTemperature = 5000f;
             light.intensity = intensity;
-            light.range = 3.4f;
+            light.range = 8.2f;
+            light.bounceIntensity = 0.8f;
             light.shadows = LightShadows.Soft;
+            light.shadowStrength = 0.55f;
             return light;
+        }
+
+        private static void BuildFluorescentFixture(
+            Transform parent,
+            string name,
+            Vector3 localPosition,
+            Material frameMaterial,
+            Material emitterMaterial)
+        {
+            GameObject fixture = new GameObject(name);
+            fixture.transform.SetParent(parent, false);
+            fixture.transform.localPosition = localPosition;
+
+            CreateCube(
+                "Recessed Housing",
+                fixture.transform,
+                Vector3.zero,
+                new Vector3(1.08f, 0.045f, 0.52f),
+                frameMaterial,
+                false);
+            for (int tube = 0; tube < 4; tube++)
+            {
+                float x = -0.36f + tube * 0.24f;
+                CreateCube(
+                    $"Fluorescent Tube {tube + 1:00}",
+                    fixture.transform,
+                    new Vector3(x, -0.031f, 0f),
+                    new Vector3(0.058f, 0.026f, 0.42f),
+                    emitterMaterial,
+                    false);
+            }
         }
 
         private static void BuildChair(string name, Transform parent, Vector3 position, Material material, bool reversed)
@@ -723,20 +822,61 @@ namespace DoNotDraw.Narrative.Editor
             return material;
         }
 
-        private static GameObject BuildSilhouette(string name, Transform parent, Vector3 position, Material material, float scale)
+        private static GameObject BuildThreatEntity(
+            string name,
+            Transform parent,
+            Vector3 position,
+            Material material)
         {
             GameObject root = new GameObject(name);
             root.transform.SetParent(parent, false);
             root.transform.position = position;
-            root.transform.localScale = Vector3.one * scale;
-            GameObject body = CreatePrimitive(PrimitiveType.Capsule, "Body", root.transform, false, material);
-            body.transform.localPosition = new Vector3(0f, 1.05f, 0f);
-            body.transform.localScale = new Vector3(0.42f, 0.68f, 0.27f);
-            GameObject head = CreatePrimitive(PrimitiveType.Sphere, "Head", root.transform, false, material);
-            head.transform.localPosition = new Vector3(0f, 1.92f, 0f);
-            head.transform.localScale = new Vector3(0.42f, 0.48f, 0.38f);
-            CreateCube("Left Arm", root.transform, new Vector3(-0.36f, 1.08f, 0f), new Vector3(0.16f, 1.18f, 0.18f), material, false);
-            CreateCube("Right Arm", root.transform, new Vector3(0.36f, 1.08f, 0f), new Vector3(0.16f, 1.18f, 0.18f), material, false);
+
+            GameObject entityPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(ThreatEntityPrefabPath);
+            if (entityPrefab == null)
+            {
+                throw new InvalidOperationException(
+                    $"The approaching threat prefab is missing at '{ThreatEntityPrefabPath}'.");
+            }
+
+            GameObject visual = PrefabUtility.InstantiatePrefab(entityPrefab, root.transform) as GameObject;
+            if (visual == null)
+            {
+                visual = UnityEngine.Object.Instantiate(entityPrefab, root.transform, false);
+            }
+            visual.name = "Backrooms Entity Visual";
+            visual.transform.localPosition = entityPrefab.transform.localPosition;
+            visual.transform.localRotation = entityPrefab.transform.localRotation;
+            visual.transform.localScale = entityPrefab.transform.localScale;
+
+            Renderer[] renderers = visual.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    $"The approaching threat prefab at '{ThreatEntityPrefabPath}' contains no renderers.");
+            }
+            foreach (Renderer renderer in renderers)
+            {
+                Material[] materials = renderer.sharedMaterials;
+                if (materials.Length == 0)
+                {
+                    renderer.sharedMaterial = material;
+                }
+                else
+                {
+                    for (int index = 0; index < materials.Length; index++)
+                    {
+                        materials[index] = material;
+                    }
+                    renderer.sharedMaterials = materials;
+                }
+                renderer.receiveShadows = false;
+            }
+
+            foreach (Collider collider in visual.GetComponentsInChildren<Collider>(true))
+            {
+                UnityEngine.Object.DestroyImmediate(collider);
+            }
             return root;
         }
 

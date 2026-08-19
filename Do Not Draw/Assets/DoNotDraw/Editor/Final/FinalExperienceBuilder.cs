@@ -7,6 +7,7 @@ using DoNotDraw.World;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -22,6 +23,9 @@ namespace DoNotDraw.Narrative.Editor
         private const string SignalRoot = FinalDataRoot + "/Signals";
         private const string SequenceRoot = FinalDataRoot + "/Sequences";
         private const string FinalMaterialRoot = "Assets/DoNotDraw/Materials/Final";
+        private const string BackroomsTextureRoot = "Assets/DoNotDraw/Textures/Backrooms";
+        private const string BackroomsWallpaperPath = BackroomsTextureRoot + "/BackroomsWallpaper_Tileable.png";
+        private const string BackroomsCarpetPath = BackroomsTextureRoot + "/BackroomsCarpet_Tileable.png";
         private const string CardArtRoot = "Assets/Art/Card";
         private const string VoiceSourcePath = "Assets/Sounds/voice.mp3";
         private const string VoiceOutputRoot = "Assets/Sounds/voice";
@@ -865,50 +869,78 @@ namespace DoNotDraw.Narrative.Editor
             GameObject root = new GameObject(FinalRootName);
             SceneManager.MoveGameObjectToScene(root, scene);
 
-            Material wall = GetOrCreateWorldSpaceConcreteMaterial();
-            Texture2D woodTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(
-                "Assets/DoNotDraw/Textures/Wood/Texturelabs_Wood_189XL.jpg");
-            Material floor = woodTexture != null
-                ? GetOrCreateTexturedMaterial(
-                    $"{FinalMaterialRoot}/AgedWoodFloor.mat",
-                    woodTexture,
-                    new Color(0.34f, 0.25f, 0.18f, 1f),
-                    new Vector2(1.35f, 2.4f),
-                    0f,
-                    0.16f)
-                : AssetDatabase.LoadAssetAtPath<Material>("Assets/DoNotDraw/Materials/Floor.mat");
-            Material ceiling = wall;
-            Material wood = AssetDatabase.LoadAssetAtPath<Material>("Assets/DoNotDraw/Materials/DeskWood.mat")
-                ?? floor;
+            ConfigureBackroomsRenderSettings();
+            Material wall = GetOrCreateWorldSpaceSurfaceMaterial(
+                $"{FinalMaterialRoot}/BackroomsWallpaper.mat",
+                BackroomsWallpaperPath,
+                new Color(0.9f, 0.92f, 0.86f, 1f),
+                0.58f,
+                0.025f);
+            Material floor = GetOrCreateWorldSpaceSurfaceMaterial(
+                $"{FinalMaterialRoot}/BackroomsCarpet.mat",
+                BackroomsCarpetPath,
+                new Color(0.94f, 0.94f, 0.88f, 1f),
+                1.35f,
+                0.015f);
+            Material ceiling = GetOrCreateMaterial(
+                $"{FinalMaterialRoot}/BackroomsCeilingTile.mat",
+                new Color(0.7f, 0.68f, 0.49f, 1f),
+                0f,
+                0.08f,
+                false);
+            Material ceilingGrid = GetOrCreateMaterial(
+                $"{FinalMaterialRoot}/BackroomsCeilingGrid.mat",
+                new Color(0.39f, 0.4f, 0.34f, 1f),
+                0.08f,
+                0.12f,
+                true);
+            Material fluorescentFrame = GetOrCreateMaterial(
+                $"{FinalMaterialRoot}/BackroomsFluorescentFrame.mat",
+                new Color(0.29f, 0.3f, 0.27f, 1f),
+                0.18f,
+                0.16f,
+                true);
+            Material fluorescentEmitter = GetOrCreateMaterial(
+                $"{FinalMaterialRoot}/BackroomsFluorescentEmitter.mat",
+                new Color(3.1f, 3.15f, 2.8f, 1f),
+                0f,
+                0f,
+                true);
+            Material wood = GetOrCreateMaterial(
+                $"{FinalMaterialRoot}/BackroomsAgedWood.mat",
+                new Color(0.23f, 0.15f, 0.075f, 1f),
+                0f,
+                0.14f,
+                false);
             Material doorMaterial = GetOrCreateMaterial(
                 $"{FinalMaterialRoot}/DoorDark.mat",
-                new Color(0.075f, 0.055f, 0.042f, 1f),
-                0.08f,
-                0.2f,
+                new Color(0.18f, 0.12f, 0.055f, 1f),
+                0.04f,
+                0.16f,
                 false);
             Material switchMetal = GetOrCreateMaterial(
                 $"{FinalMaterialRoot}/SwitchMetal.mat",
-                new Color(0.07f, 0.065f, 0.06f, 1f),
-                0.72f,
-                0.35f,
+                new Color(0.13f, 0.125f, 0.085f, 1f),
+                0.58f,
+                0.28f,
                 false);
             Material brass = GetOrCreateMaterial(
                 $"{FinalMaterialRoot}/AgedBrass.mat",
-                new Color(0.3f, 0.18f, 0.06f, 1f),
-                0.82f,
-                0.32f,
+                new Color(0.26f, 0.18f, 0.065f, 1f),
+                0.72f,
+                0.25f,
                 false);
             Material nickel = GetOrCreateMaterial(
                 $"{FinalMaterialRoot}/DullNickel.mat",
-                new Color(0.28f, 0.3f, 0.31f, 1f),
-                0.9f,
-                0.38f,
+                new Color(0.25f, 0.25f, 0.18f, 1f),
+                0.72f,
+                0.3f,
                 false);
             Material curtain = GetOrCreateMaterial(
                 $"{FinalMaterialRoot}/DustyCurtain.mat",
-                new Color(0.16f, 0.09f, 0.07f, 1f),
+                new Color(0.22f, 0.18f, 0.11f, 1f),
                 0f,
-                0.18f,
+                0.1f,
                 false);
             Material silhouetteMaterial = GetOrCreateTransparentMaterial(
                 $"{FinalMaterialRoot}/Silhouette.mat",
@@ -946,6 +978,9 @@ namespace DoNotDraw.Narrative.Editor
                 wall,
                 floor,
                 ceiling,
+                ceilingGrid,
+                fluorescentFrame,
+                fluorescentEmitter,
                 doorMaterial,
                 wood,
                 brass,
@@ -1494,6 +1529,7 @@ namespace DoNotDraw.Narrative.Editor
             Set(serialized, "shadowCaster", room.ShadowCaster);
             Set(serialized, "screenFade", screenFade);
             Set(serialized, "enableClimaxThreat", false);
+            Set(serialized, "flickerAmplitude", 0f);
             Set(serialized, "ambientSource", ambience);
             Set(serialized, "clockSource", clockSource);
             Set(serialized, "rearSource", rearSource);
@@ -1693,20 +1729,34 @@ namespace DoNotDraw.Narrative.Editor
             return source;
         }
 
-        private static Material GetOrCreateWorldSpaceConcreteMaterial()
+        private static void ConfigureBackroomsRenderSettings()
         {
-            const string shaderName = "DoNotDraw/WorldSpaceConcrete";
-            const string albedoPath = "Assets/DoNotDraw/Textures/ConcreteWall_Rough.png";
-            const string normalPath = "Assets/DoNotDraw/Textures/ConcreteWall_Rough_Height.png";
-            string materialPath = $"{FinalMaterialRoot}/WorldSpaceConcrete.mat";
+            RenderSettings.fog = false;
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(0.28f, 0.285f, 0.225f, 1f);
+            RenderSettings.ambientSkyColor = new Color(0.32f, 0.31f, 0.22f, 1f);
+            RenderSettings.ambientEquatorColor = new Color(0.24f, 0.235f, 0.17f, 1f);
+            RenderSettings.ambientGroundColor = new Color(0.12f, 0.115f, 0.085f, 1f);
+            RenderSettings.ambientIntensity = 1f;
+            RenderSettings.reflectionIntensity = 0.22f;
+        }
+
+        private static Material GetOrCreateWorldSpaceSurfaceMaterial(
+            string materialPath,
+            string texturePath,
+            Color tint,
+            float worldTiling,
+            float smoothness)
+        {
+            const string shaderName = "DoNotDraw/BackroomsWorldSurface";
+            ConfigureTileableTexture(texturePath);
 
             Shader shader = Shader.Find(shaderName);
-            Texture2D albedo = AssetDatabase.LoadAssetAtPath<Texture2D>(albedoPath);
-            Texture2D normal = AssetDatabase.LoadAssetAtPath<Texture2D>(normalPath);
-            if (shader == null || albedo == null || normal == null)
+            Texture2D albedo = AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath);
+            if (shader == null || albedo == null)
             {
                 throw new InvalidOperationException(
-                    "The world-space concrete shader and both concrete textures must be imported before building the scene.");
+                    $"Backrooms surface dependencies are missing: shader '{shaderName}', texture '{texturePath}'.");
             }
 
             Material material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
@@ -1721,16 +1771,44 @@ namespace DoNotDraw.Narrative.Editor
             }
 
             material.SetTexture("_BaseMap", albedo);
-            material.SetTexture("_BumpMap", normal);
-            material.SetColor("_BaseColor", new Color(0.76f, 0.75f, 0.72f, 1f));
-            material.SetFloat("_WorldTiling", 0.62f);
+            material.SetColor("_BaseColor", tint);
+            material.SetFloat("_WorldTiling", worldTiling);
             material.SetFloat("_BlendSharpness", 8f);
-            material.SetFloat("_BumpScale", 0.72f);
             material.SetFloat("_Metallic", 0f);
-            material.SetFloat("_Smoothness", 0.055f);
+            material.SetFloat("_Smoothness", smoothness);
             material.SetFloat("_OcclusionStrength", 1f);
             EditorUtility.SetDirty(material);
             return material;
+        }
+
+        private static void ConfigureTileableTexture(string texturePath)
+        {
+            TextureImporter importer = AssetImporter.GetAtPath(texturePath) as TextureImporter;
+            if (importer == null)
+            {
+                throw new InvalidOperationException($"Tileable texture was not found at '{texturePath}'.");
+            }
+
+            bool requiresReimport = importer.textureType != TextureImporterType.Default
+                || importer.wrapMode != TextureWrapMode.Repeat
+                || importer.npotScale != TextureImporterNPOTScale.None
+                || !importer.mipmapEnabled
+                || !importer.sRGBTexture
+                || importer.filterMode != FilterMode.Trilinear
+                || importer.anisoLevel != 4;
+            if (!requiresReimport)
+            {
+                return;
+            }
+
+            importer.textureType = TextureImporterType.Default;
+            importer.wrapMode = TextureWrapMode.Repeat;
+            importer.npotScale = TextureImporterNPOTScale.None;
+            importer.mipmapEnabled = true;
+            importer.sRGBTexture = true;
+            importer.filterMode = FilterMode.Trilinear;
+            importer.anisoLevel = 4;
+            importer.SaveAndReimport();
         }
 
         private static Material GetOrCreateMaterial(
@@ -1740,13 +1818,18 @@ namespace DoNotDraw.Narrative.Editor
             float smoothness,
             bool unlit)
         {
+            Shader desiredShader = Shader.Find(
+                    unlit ? "Universal Render Pipeline/Unlit" : "Universal Render Pipeline/Lit")
+                ?? Shader.Find("Standard");
             Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (material == null)
             {
-                Shader shader = Shader.Find(unlit ? "Universal Render Pipeline/Unlit" : "Universal Render Pipeline/Lit")
-                    ?? Shader.Find("Standard");
-                material = new Material(shader);
+                material = new Material(desiredShader);
                 AssetDatabase.CreateAsset(material, path);
+            }
+            else if (material.shader != desiredShader)
+            {
+                material.shader = desiredShader;
             }
 
             if (material.HasProperty("_BaseColor"))
