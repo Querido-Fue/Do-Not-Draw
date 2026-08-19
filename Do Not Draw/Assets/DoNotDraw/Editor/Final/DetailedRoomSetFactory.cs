@@ -53,6 +53,10 @@ namespace DoNotDraw.Narrative.Editor
         private const float SecondDoorX = 2f;
         private const float DoorWidth = 1f;
         private const float DoorHeight = 2.3f;
+        private const string PreplacedCardTexturePath =
+            "Assets/Art/Card/Card3_DoNotOpenTheSecondDoor.png";
+        private const string PreplacedCardMaterialPath =
+            "Assets/DoNotDraw/Materials/Final/PreplacedCardFour.mat";
 
         public static DetailedRoomSetRefs Build(
             Transform parent,
@@ -629,8 +633,10 @@ namespace DoNotDraw.Narrative.Editor
             GameObject root = new GameObject("Already Drawn Card Four");
             root.transform.SetParent(parent, false);
             root.transform.position = position;
-            Material cardFace = AssetDatabase.LoadAssetAtPath<Material>(
+            Material fallbackFace = AssetDatabase.LoadAssetAtPath<Material>(
                 "Assets/DoNotDraw/Materials/Cards/CardFront.mat") ?? material;
+            Texture2D faceTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(PreplacedCardTexturePath);
+            Material cardFace = GetOrCreatePreplacedCardMaterial(fallbackFace, faceTexture);
             CreateCube(
                 "Card Four Surface",
                 root.transform,
@@ -638,6 +644,11 @@ namespace DoNotDraw.Narrative.Editor
                 new Vector3(0.42f, 0.015f, 0.62f),
                 cardFace,
                 false);
+            if (faceTexture != null)
+            {
+                return;
+            }
+
             GameObject canvasObject = new GameObject("Card Four Text");
             canvasObject.transform.SetParent(root.transform, false);
             canvasObject.transform.localPosition = new Vector3(0f, 0.011f, 0f);
@@ -659,6 +670,57 @@ namespace DoNotDraw.Narrative.Editor
             textRect.anchorMax = Vector2.one;
             textRect.offsetMin = Vector2.zero;
             textRect.offsetMax = Vector2.zero;
+        }
+
+        private static Material GetOrCreatePreplacedCardMaterial(
+            Material fallback,
+            Texture2D faceTexture)
+        {
+            if (faceTexture == null)
+            {
+                return fallback;
+            }
+
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(PreplacedCardMaterialPath);
+            Shader shader = fallback != null
+                ? fallback.shader
+                : Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            if (material == null)
+            {
+                material = new Material(shader);
+                AssetDatabase.CreateAsset(material, PreplacedCardMaterialPath);
+            }
+            else if (material.shader != shader)
+            {
+                material.shader = shader;
+            }
+
+            if (material.HasProperty("_BaseMap"))
+            {
+                material.SetTexture("_BaseMap", faceTexture);
+                material.SetTextureScale("_BaseMap", Vector2.one);
+            }
+            material.mainTexture = faceTexture;
+            material.mainTextureScale = Vector2.one;
+            if (material.HasProperty("_BaseColor"))
+            {
+                material.SetColor("_BaseColor", Color.white);
+            }
+            if (material.HasProperty("_Color"))
+            {
+                material.SetColor("_Color", Color.white);
+            }
+            if (material.HasProperty("_Metallic"))
+            {
+                material.SetFloat("_Metallic", 0f);
+            }
+            if (material.HasProperty("_Smoothness"))
+            {
+                material.SetFloat("_Smoothness", 0.08f);
+            }
+
+            EditorUtility.SetDirty(material);
+            return material;
         }
 
         private static GameObject BuildSilhouette(string name, Transform parent, Vector3 position, Material material, float scale)

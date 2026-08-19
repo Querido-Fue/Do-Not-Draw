@@ -15,6 +15,7 @@ MonoBehaviour:
   stableId: final.card.do_not_draw_next_room_card
   displayName: DO NOT DRAW CARD OF NEXT ROOM.
   faceText: DO NOT DRAW CARD OF NEXT ROOM.
+  faceTexture: {fileID: 0}
   faceAccentMaterial: {fileID: 2100000, guid: b9160984b09414d40a89c3d4461c8eab, type: 2}
   faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}
   drawSoundOverride: {fileID: 0}

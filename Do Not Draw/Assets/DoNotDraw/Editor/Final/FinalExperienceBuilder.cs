@@ -22,6 +22,7 @@ namespace DoNotDraw.Narrative.Editor
         private const string SignalRoot = FinalDataRoot + "/Signals";
         private const string SequenceRoot = FinalDataRoot + "/Sequences";
         private const string FinalMaterialRoot = "Assets/DoNotDraw/Materials/Final";
+        private const string CardArtRoot = "Assets/Art/Card";
         private const string VoiceSourcePath = "Assets/Sounds/voice.mp3";
         private const string VoiceOutputRoot = "Assets/Sounds/voice";
 
@@ -38,6 +39,7 @@ namespace DoNotDraw.Narrative.Editor
             public string Key;
             public string Text;
             public string DisplayName;
+            public string FaceTextureFileName;
             public CardTypographyStage TypographyStage;
             public float TextFadeDuration = 0.28f;
             public float DoubleExposureDuration;
@@ -435,6 +437,7 @@ namespace DoNotDraw.Narrative.Editor
                 Set(serialized, "stableId", $"final.card.{spec.Key}");
                 Set(serialized, "displayName", spec.DisplayName);
                 Set(serialized, "faceText", spec.Text);
+                Set(serialized, "faceTexture", LoadCardFaceTexture(spec.FaceTextureFileName));
                 Set(serialized, "faceAccentMaterial", index % 3 == 0 ? blackAccent : redAccent);
                 Set(serialized, "faceTextColor", new Color(0.055f, 0.035f, 0.025f, 1f));
                 Set(serialized, "voiceClip", index < voiceClips.Count ? voiceClips[index] : null);
@@ -506,25 +509,27 @@ namespace DoNotDraw.Narrative.Editor
             return new List<CardSpec>
             {
                 Card("do_not_draw_opening", "DO NOT DRAW."),
-                Card("do_not_look_behind_early", "DO NOT LOOK BEHIND YOU."),
-                Card("do_not_turn_off_light", "DO NOT TURN OFF THE LIGHT."),
-                Card("do_not_open_second_door", "DO NOT OPEN THE SECOND DOOR."),
-                Card("do_not_enter", "DO NOT ENTER."),
+                Card("do_not_look_behind_early", "DO NOT LOOK BEHIND YOU.", faceTextureFileName: "Card1_DoNotLookBehindYou.png"),
+                Card("do_not_turn_off_light", "DO NOT TURN OFF THE LIGHT.", faceTextureFileName: "Card2_DoNotTurnOffTheLight.png"),
+                Card("do_not_open_second_door", "DO NOT OPEN THE SECOND DOOR.", faceTextureFileName: "Card3_DoNotOpenTheSecondDoor.png"),
+                Card("do_not_enter", "DO NOT ENTER.", faceTextureFileName: "Card4_DoNotEnter.png"),
+                // Card6_YouSee.png has no matching card in the authoritative 19-step flow.
+                // Keep the unused room-card definition textually correct instead of showing mismatched art.
                 Card("do_not_draw_next_room_card", "DO NOT DRAW CARD OF NEXT ROOM."),
-                Card("do_not_look_at_door", "DO NOT LOOK AT THE DOOR.", CardTypographyStage.Uneven),
-                Card("do_not_look_through_window", "DO NOT LOOK THROUGH THE WINDOW.", CardTypographyStage.Uneven),
-                Card("you_already_did", "YOU ALREADY DID.", CardTypographyStage.Uneven, 1.05f),
-                Card("do_not_draw_next_card", "DO NOT DRAW THE NEXT CARD.", CardTypographyStage.Uneven),
-                Card("do_not_draw_survival", "DO NOT DRAW.", CardTypographyStage.Clean, 0.18f),
-                Card("do_not_turn_around", "DO NOT TURN AROUND.", CardTypographyStage.Uneven),
+                Card("do_not_look_at_door", "DO NOT LOOK AT THE DOOR.", CardTypographyStage.Uneven, faceTextureFileName: "Card5_DoNotLookAtTheDoor.png"),
+                Card("do_not_look_through_window", "DO NOT LOOK THROUGH THE WINDOW.", CardTypographyStage.Uneven, faceTextureFileName: "Card7_DoNotLookAtTheWindow.png"),
+                Card("you_already_did", "YOU ALREADY DID.", CardTypographyStage.Uneven, 1.05f, faceTextureFileName: "Card7_YouAleadyDid.png"),
+                Card("do_not_draw_next_card", "DO NOT DRAW THE NEXT CARD.", CardTypographyStage.Uneven, faceTextureFileName: "Card8_DoNotDrawTheNextCard.png"),
+                Card("do_not_draw_survival", "DO NOT DRAW.", CardTypographyStage.Clean, 0.18f, faceTextureFileName: "Card9_DoNotDraw.png"),
+                Card("do_not_turn_around", "DO NOT TURN AROUND.", CardTypographyStage.Uneven, faceTextureFileName: "Card10_DoNotTurnAround.png"),
                 Card("good", "GOOD.", CardTypographyStage.Uneven, 0.28f, 0f, true),
-                Card("i_saw_you_look", "I SAW YOU LOOK.", CardTypographyStage.Uneven, 0.28f, 0f, true),
-                Card("do_not_touch_door", "DO NOT TOUCH THE DOOR.", CardTypographyStage.Uneven),
-                Card("why_did_you_open_it", "WHY DID YOU OPEN IT?", CardTypographyStage.Uneven, 1.05f),
-                Card("do_not_blame_cards", "DO NOT BLAME THE CARDS.", CardTypographyStage.Damaged, 0.8f),
-                Card("do_not_look_behind_door", "DO NOT LOOK BEHIND YOU.", CardTypographyStage.DoubleExposure, 0.32f, 0.18f),
-                Card("you_saw_it", "YOU SAW IT.", CardTypographyStage.DoubleExposure, 1.05f, 0.3f),
-                Card("do_not_leave", "DO NOT LEAVE.", CardTypographyStage.DoubleExposure, 0.32f, 0.18f),
+                Card("i_saw_you_look", "I SAW YOU LOOK.", CardTypographyStage.Uneven, 0.28f, 0f, true, "Card11_ISawYouLook.png"),
+                Card("do_not_touch_door", "DO NOT TOUCH THE DOOR.", CardTypographyStage.Uneven, faceTextureFileName: "Card12_DoNotTouchTheDoor.png"),
+                Card("why_did_you_open_it", "WHY DID YOU OPEN IT?", CardTypographyStage.Uneven, 1.05f, faceTextureFileName: "Card13_WhyDidYouOpenIt.png"),
+                Card("do_not_blame_cards", "DO NOT BLAME THE CARDS.", CardTypographyStage.Damaged, 0.8f, faceTextureFileName: "Card14_DoNotBlameTheCards.png"),
+                Card("do_not_look_behind_door", "DO NOT LOOK BEHIND YOU.", CardTypographyStage.DoubleExposure, 0.32f, 0.18f, faceTextureFileName: "Card15_DoNotLookBehindYou.png"),
+                Card("you_saw_it", "YOU SAW IT.", CardTypographyStage.DoubleExposure, 1.05f, 0.3f, faceTextureFileName: "Card16_YouSawIt.png"),
+                Card("do_not_leave", "DO NOT LEAVE.", CardTypographyStage.DoubleExposure, 0.32f, 0.18f, faceTextureFileName: "Card17_DoNotLeave.png"),
                 Card("do_not_draw_again", "DO NOT DRAW AGAIN.", CardTypographyStage.DoubleExposure, 0.4f, 0.25f)
             };
         }
@@ -535,18 +540,60 @@ namespace DoNotDraw.Narrative.Editor
             CardTypographyStage typographyStage = CardTypographyStage.Clean,
             float textFadeDuration = 0.28f,
             float doubleExposureDuration = 0f,
-            bool liftOnReveal = false)
+            bool liftOnReveal = false,
+            string faceTextureFileName = null)
         {
             return new CardSpec
             {
                 Key = key,
                 Text = text,
                 DisplayName = text,
+                FaceTextureFileName = faceTextureFileName,
                 TypographyStage = typographyStage,
                 TextFadeDuration = textFadeDuration,
                 DoubleExposureDuration = doubleExposureDuration,
                 LiftOnReveal = liftOnReveal
             };
+        }
+
+        private static Texture2D LoadCardFaceTexture(string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                return null;
+            }
+
+            string path = $"{CardArtRoot}/{fileName}";
+            TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null)
+            {
+                throw new InvalidOperationException($"Card face texture was not found at '{path}'.");
+            }
+
+            bool requiresReimport = importer.textureType != TextureImporterType.Default
+                || importer.wrapMode != TextureWrapMode.Clamp
+                || importer.npotScale != TextureImporterNPOTScale.None
+                || !importer.mipmapEnabled
+                || !importer.sRGBTexture
+                || importer.filterMode != FilterMode.Bilinear;
+            if (requiresReimport)
+            {
+                importer.textureType = TextureImporterType.Default;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.npotScale = TextureImporterNPOTScale.None;
+                importer.mipmapEnabled = true;
+                importer.sRGBTexture = true;
+                importer.filterMode = FilterMode.Bilinear;
+                importer.SaveAndReimport();
+            }
+
+            Texture2D texture = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            if (texture == null)
+            {
+                throw new InvalidOperationException($"Unity could not import card face texture '{path}'.");
+            }
+
+            return texture;
         }
 
         private static CardSequenceDefinition BuildFinalSequence(NarrativeAssets assets)

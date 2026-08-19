@@ -20,7 +20,9 @@ namespace DoNotDraw.Narrative
         [Header("Card Layout")]
         [SerializeField, Min(0f)] private float cardSpread = 0.055f;
         [SerializeField, Min(0f)] private float rowSpread = 0.07f;
+        [SerializeField, Min(0f)] private float cardLayerSpacing = 0.006f;
         [SerializeField, Min(1)] private int cardsPerRow = 8;
+        [SerializeField, Min(1)] private int sortingOrderStep = 10;
 
         [Header("Animation")]
         [SerializeField, Min(0.1f)] private float animationDuration = 0.82f;
@@ -43,6 +45,11 @@ namespace DoNotDraw.Narrative
         private int remainingCards = 1;
         private float deckThicknessMultiplier = 1f;
         private bool visualStateCached;
+
+        private static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
+        private static readonly int MainTextureId = Shader.PropertyToID("_MainTex");
+        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int ColorId = Shader.PropertyToID("_Color");
 
         public bool IsPresenting { get; private set; }
         public int RemainingCards => remainingCards;
@@ -110,6 +117,7 @@ namespace DoNotDraw.Narrative
             card.name = $"Drawn Card {drawIndex + 1:00}";
             card.SetActive(true);
             runtimeCards.Add(card);
+            ApplyDrawPriority(card, drawIndex);
             Text faceLabel = ApplyDefinition(card, definition, drawIndex);
 
             Vector3 startPosition = deckTop.position + deckTop.up * 0.012f;
@@ -120,7 +128,7 @@ namespace DoNotDraw.Narrative
             Vector3 endPosition = displayAnchor.position
                 + displayAnchor.right * (column * cardSpread)
                 - displayAnchor.forward * (row * rowSpread)
-                + displayAnchor.up * (drawIndex * 0.0025f);
+                + displayAnchor.up * (drawIndex * cardLayerSpacing);
             float endYaw = Mathf.Lerp(-7f, 8f, column / (float)Mathf.Max(1, cardsPerRow - 1));
             Quaternion endRotation = displayAnchor.rotation * Quaternion.Euler(0f, endYaw, 0f);
 
@@ -175,13 +183,33 @@ namespace DoNotDraw.Narrative
 
         private Text ApplyDefinition(GameObject card, CardDefinition definition, int drawIndex)
         {
+            Texture2D faceTexture = definition?.FaceTexture;
+            Transform frontSurface = card.transform.Find("Front Surface");
+            Transform frontDesign = card.transform.Find("Front Design");
+            Text faceLabel = card.GetComponentInChildren<Text>(true);
+
+            if (faceTexture != null)
+            {
+                ApplyFaceTexture(frontSurface, faceTexture);
+                if (frontDesign != null)
+                {
+                    frontDesign.gameObject.SetActive(false);
+                }
+
+                if (faceLabel != null)
+                {
+                    faceLabel.gameObject.SetActive(false);
+                }
+
+                return null;
+            }
+
             Material accentMaterial = definition?.FaceAccentMaterial;
             if (accentMaterial == null && fallbackFaceAccentMaterials is { Length: > 0 })
             {
                 accentMaterial = fallbackFaceAccentMaterials[drawIndex % fallbackFaceAccentMaterials.Length];
             }
 
-            Transform frontDesign = card.transform.Find("Front Design");
             if (frontDesign != null && accentMaterial != null)
             {
                 Renderer[] renderers = frontDesign.GetComponentsInChildren<Renderer>(true);
@@ -191,7 +219,6 @@ namespace DoNotDraw.Narrative
                 }
             }
 
-            Text faceLabel = card.GetComponentInChildren<Text>(true);
             if (faceLabel != null)
             {
                 string faceText = definition?.FaceText ?? string.Empty;
@@ -206,6 +233,42 @@ namespace DoNotDraw.Narrative
             }
 
             return faceLabel;
+        }
+
+        private static void ApplyFaceTexture(Transform frontSurface, Texture2D faceTexture)
+        {
+            Renderer faceRenderer = frontSurface != null
+                ? frontSurface.GetComponent<Renderer>()
+                : null;
+            if (faceRenderer == null || faceTexture == null)
+            {
+                return;
+            }
+
+            MaterialPropertyBlock properties = new MaterialPropertyBlock();
+            faceRenderer.GetPropertyBlock(properties);
+            properties.SetTexture(BaseMapId, faceTexture);
+            properties.SetTexture(MainTextureId, faceTexture);
+            properties.SetColor(BaseColorId, Color.white);
+            properties.SetColor(ColorId, Color.white);
+            faceRenderer.SetPropertyBlock(properties);
+        }
+
+        private void ApplyDrawPriority(GameObject card, int drawIndex)
+        {
+            int baseOrder = Mathf.Max(0, drawIndex) * sortingOrderStep;
+            Renderer[] renderers = card.GetComponentsInChildren<Renderer>(true);
+            foreach (Renderer cardRenderer in renderers)
+            {
+                cardRenderer.sortingOrder = baseOrder;
+            }
+
+            Canvas[] canvases = card.GetComponentsInChildren<Canvas>(true);
+            foreach (Canvas canvas in canvases)
+            {
+                canvas.overrideSorting = true;
+                canvas.sortingOrder = baseOrder + 1;
+            }
         }
 
         private static void ApplyTypography(Text label, CardTypographyStage stage)
@@ -407,7 +470,9 @@ namespace DoNotDraw.Narrative
         {
             cardSpread = Mathf.Max(0f, cardSpread);
             rowSpread = Mathf.Max(0f, rowSpread);
+            cardLayerSpacing = Mathf.Max(0f, cardLayerSpacing);
             cardsPerRow = Mathf.Max(1, cardsPerRow);
+            sortingOrderStep = Mathf.Max(1, sortingOrderStep);
             animationDuration = Mathf.Max(0.1f, animationDuration);
             arcHeight = Mathf.Max(0f, arcHeight);
             drawVolume = Mathf.Clamp01(drawVolume);
