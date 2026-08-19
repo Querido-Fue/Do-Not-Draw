@@ -10,6 +10,7 @@ namespace DoNotDraw.World
     public sealed class HorrorDoorInteractable : PlayerInteractableBehaviour
     {
         [SerializeField] private Transform pivot;
+        [SerializeField] private Transform handle;
         [SerializeField] private Transform interactionPoint;
         [SerializeField] private string prompt = "[F]  OPEN DOOR";
         [SerializeField] private bool interactionEnabled;
@@ -23,7 +24,9 @@ namespace DoNotDraw.World
 
         private AudioSource audioSource;
         private Quaternion closedRotation;
+        private Quaternion handleRestRotation;
         private Coroutine animationRoutine;
+        private Coroutine handleRoutine;
         private bool initialized;
         private bool isOpen;
         private bool isMoving;
@@ -68,6 +71,10 @@ namespace DoNotDraw.World
             Initialize();
             StopAnimation();
             pivot.localRotation = closedRotation;
+            if (handle != null)
+            {
+                handle.localRotation = handleRestRotation;
+            }
             isOpen = false;
             isMoving = false;
         }
@@ -90,6 +97,26 @@ namespace DoNotDraw.World
         public void CloseWithSlam()
         {
             AnimateTo(0f, slamDuration, slamSound, false);
+        }
+
+        public void TwistHandleByStory(float duration = 2f, float angle = 45f)
+        {
+            Initialize();
+            if (handle == null)
+            {
+                if (audioSource != null && openSound != null)
+                {
+                    audioSource.PlayOneShot(openSound, volume * 0.65f);
+                }
+                return;
+            }
+
+            if (handleRoutine != null)
+            {
+                StopCoroutine(handleRoutine);
+            }
+
+            handleRoutine = StartCoroutine(TwistHandleRoutine(Mathf.Max(0.1f, duration), angle));
         }
 
         private void AnimateTo(float angle, float duration, AudioClip clip, bool openState)
@@ -125,6 +152,42 @@ namespace DoNotDraw.World
             animationRoutine = null;
         }
 
+        private IEnumerator TwistHandleRoutine(float duration, float angle)
+        {
+            if (audioSource != null && openSound != null)
+            {
+                audioSource.PlayOneShot(openSound, volume * 0.7f);
+            }
+
+            Quaternion start = handle.localRotation;
+            Quaternion target = handleRestRotation * Quaternion.Euler(0f, 0f, angle);
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                float shaped;
+                if (t < 0.42f)
+                {
+                    shaped = Mathf.SmoothStep(0f, 0.52f, t / 0.42f);
+                }
+                else if (t < 0.58f)
+                {
+                    shaped = 0.52f;
+                }
+                else
+                {
+                    shaped = Mathf.SmoothStep(0.52f, 1f, (t - 0.58f) / 0.42f);
+                }
+
+                handle.localRotation = Quaternion.Slerp(start, target, shaped);
+                yield return null;
+            }
+
+            handle.localRotation = target;
+            handleRoutine = null;
+        }
+
         private void Initialize()
         {
             if (initialized)
@@ -135,6 +198,10 @@ namespace DoNotDraw.World
             pivot ??= transform;
             audioSource = GetComponent<AudioSource>();
             closedRotation = pivot.localRotation;
+            if (handle != null)
+            {
+                handleRestRotation = handle.localRotation;
+            }
             initialized = true;
         }
 
@@ -144,6 +211,13 @@ namespace DoNotDraw.World
             {
                 StopCoroutine(animationRoutine);
                 animationRoutine = null;
+            }
+
+
+            if (handleRoutine != null)
+            {
+                StopCoroutine(handleRoutine);
+                handleRoutine = null;
             }
         }
 

@@ -15,6 +15,7 @@ MonoBehaviour:
   stableId: final.card.do_not_draw_next_card
   displayName: DO NOT DRAW THE NEXT CARD.
   faceText: DO NOT DRAW THE NEXT CARD.
+  faceTexture: {fileID: 2800000, guid: f364b972b116e424faba300daf496d64, type: 3}
   faceAccentMaterial: {fileID: 2100000, guid: 9c1bc92ef35503245893d06d3fd174c0, type: 2}
   faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}
   drawSoundOverride: {fileID: 0}
@@ -22,6 +23,12 @@ MonoBehaviour:
   voiceClip: {fileID: 8300000, guid: 072d16c2c8eca574ebb6ec8dc0352c0c, type: 3}
   voiceVolume: 0.82
   voiceDelay: 0.16
+  textFadeDuration: 0.28
+  typographyStage: 1
+  doubleExposureDuration: 0
+  liftOnReveal: 0
+  revealLiftHeight: 0.045
+  revealLiftDuration: 0.4
   tags:
   - final
   - flow-authority

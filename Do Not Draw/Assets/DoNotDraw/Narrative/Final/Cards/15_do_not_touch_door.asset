@@ -15,6 +15,7 @@ MonoBehaviour:
   stableId: final.card.do_not_touch_door
   displayName: DO NOT TOUCH THE DOOR.
   faceText: DO NOT TOUCH THE DOOR.
+  faceTexture: {fileID: 2800000, guid: dec57726eb4b0b54ab6813f26a613f3e, type: 3}
   faceAccentMaterial: {fileID: 2100000, guid: b9160984b09414d40a89c3d4461c8eab, type: 2}
   faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}
   drawSoundOverride: {fileID: 0}
@@ -22,6 +23,12 @@ MonoBehaviour:
   voiceClip: {fileID: 8300000, guid: 3c6d3e7a0018add4a95b4999e1a4aad9, type: 3}
   voiceVolume: 0.82
   voiceDelay: 0.16
+  textFadeDuration: 0.28
+  typographyStage: 1
+  doubleExposureDuration: 0
+  liftOnReveal: 0
+  revealLiftHeight: 0.045
+  revealLiftDuration: 0.4
   tags:
   - final
   - flow-authority

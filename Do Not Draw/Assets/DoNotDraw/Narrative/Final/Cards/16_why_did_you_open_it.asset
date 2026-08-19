@@ -15,6 +15,7 @@ MonoBehaviour:
   stableId: final.card.why_did_you_open_it
   displayName: WHY DID YOU OPEN IT?
   faceText: WHY DID YOU OPEN IT?
+  faceTexture: {fileID: 2800000, guid: 89466e521d4a84a43ae0513fd4302156, type: 3}
   faceAccentMaterial: {fileID: 2100000, guid: 9c1bc92ef35503245893d06d3fd174c0, type: 2}
   faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}
   drawSoundOverride: {fileID: 0}
@@ -22,6 +23,12 @@ MonoBehaviour:
   voiceClip: {fileID: 8300000, guid: 5067e788c9e73c44785bd804f15644f1, type: 3}
   voiceVolume: 0.82
   voiceDelay: 0.16
+  textFadeDuration: 1.05
+  typographyStage: 1
+  doubleExposureDuration: 0
+  liftOnReveal: 0
+  revealLiftHeight: 0.045
+  revealLiftDuration: 0.4
   tags:
   - final
   - flow-authority

@@ -9,20 +9,25 @@ namespace DoNotDraw.World
 {
     public enum ClosedRoomCue
     {
-        StartRearWarning,
-        RevealLightSwitch,
-        EnableLightSwitchInteraction,
-        EnableSecondDoorInteraction,
-        MarkEnterCardDrawn,
-        SlamSecondDoor,
-        ShowWindowSilhouette,
-        DarkenForHunt,
-        StartHunt,
-        SettleAfterHunt,
+        BeginOpening,
+        PulseOpeningCard,
+        StartRearLookRule,
+        ArmLightRule,
+        ArmSecondDoorRule,
+        ArmEnterRule,
+        BeginActOneToTwo,
+        ResumeAtmosphere,
+        ArmWindowVision,
+        PauseSensoryBeat,
+        BeginActTwoToThree,
+        StartHuntFar,
+        StartHuntClose,
+        BeginActThreeToFour,
         StartTurnAroundTest,
-        OpenDoorByItself,
-        ShowDoorCrackSilhouette,
+        ScheduleFirstDoorOpen,
+        SwingUnnaturalShadow,
         OpenExit,
+        PrepareEnding,
         ShowEnding
     }
 
@@ -40,6 +45,14 @@ namespace DoNotDraw.World
     [DisallowMultipleComponent]
     public sealed class ClosedRoomStoryDirector : MonoBehaviour
     {
+        private enum DeckFallbackRule
+        {
+            None,
+            Light,
+            SecondDoor,
+            Enter
+        }
+
         [Header("Narrative")]
         [SerializeField] private CardSequenceRunner runner;
         [SerializeField] private StoryBlackboard blackboard;
@@ -48,7 +61,10 @@ namespace DoNotDraw.World
         [Header("Player")]
         [SerializeField] private Transform playerRoot;
         [SerializeField] private Transform playerView;
+        [SerializeField] private Camera playerCamera;
         [SerializeField] private Behaviour movementController;
+        [SerializeField] private Transform playerStartMarker;
+        [SerializeField] private Transform secondRoomPlayerMarker;
 
         [Header("Card Stations")]
         [SerializeField] private CardDeckPresenter primaryPresenter;
@@ -56,197 +72,200 @@ namespace DoNotDraw.World
         [SerializeField] private CardDeckPresenter secondRoomPresenter;
         [SerializeField] private CardDeckInteraction secondRoomInteraction;
 
-        [Header("Room Devices")]
-        [SerializeField] private Light ceilingLight;
-        [SerializeField] private Light secondRoomLight;
-        [SerializeField] private HorrorLightSwitchInteractable lightSwitch;
+        [Header("Room Sets")]
+        [SerializeField] private GameObject firstRoomSet;
+        [SerializeField] private GameObject secondRoomSet;
         [SerializeField] private GameObject lightSwitchRoot;
-        [SerializeField] private HorrorDoorInteractable secondDoor;
         [SerializeField] private GameObject secondDoorRoot;
         [SerializeField] private GameObject secondDoorCover;
+        [SerializeField] private GameObject windowVision;
+        [SerializeField] private GameObject endingPortraitSilhouette;
+
+        [Header("Lights")]
+        [SerializeField] private Light lampLight;
+        [SerializeField] private Light secondRoomLampLight;
+        [SerializeField] private Light moonLight;
+        [SerializeField] private Light rearDoorRimLight;
+        [SerializeField] private Transform firstRoomRimAnchor;
+        [SerializeField] private Transform secondRoomRimAnchor;
+        [SerializeField] private Light silhouetteBacklight;
+        [SerializeField] private Light exitLight;
+        [SerializeField, Range(0f, 0.05f)] private float flickerAmplitude;
+
+        [Header("Doors And Switch")]
+        [SerializeField] private HorrorLightSwitchInteractable lightSwitch;
+        [SerializeField] private HorrorDoorInteractable secondDoor;
+        [SerializeField] private HorrorDoorInteractable storyDoor;
         [SerializeField] private NarrativeZoneTrigger secondRoomZone;
-        [SerializeField] private NarrativeZoneTrigger returnZone;
         [SerializeField] private NarrativeZoneTrigger endingZone;
 
-        [Header("Gaze Targets")]
-        [SerializeField] private Transform rearWarningTarget;
+        [Header("Gaze And Silhouette")]
         [SerializeField] private Transform windowGazeTarget;
-        [SerializeField] private Transform doorCrackGazeTarget;
-        [SerializeField, Range(0.5f, 0.999f)] private float rearLookDot = 0.78f;
-        [SerializeField, Range(0.5f, 0.999f)] private float focusedLookDot = 0.93f;
-        [SerializeField, Range(20f, 170f)] private float turnAroundAngle = 72f;
-
-        [Header("Silhouettes")]
-        [SerializeField] private GameObject windowSilhouette;
         [SerializeField] private Transform threatSilhouette;
         [SerializeField] private Transform threatStart;
         [SerializeField] private Transform threatEnd;
-        [SerializeField] private GameObject doorCrackSilhouette;
         [SerializeField, Min(1f)] private float threatApproachDuration = 10f;
+        [SerializeField, Range(0.5f, 0.999f)] private float focusedLookDot = 0.93f;
+        [SerializeField, Min(0.1f)] private float windowGazeDuration = 1f;
+        [SerializeField, Range(90f, 179f)] private float rearImpactAngle = 150f;
 
-        [Header("Screen Transitions")]
+        [Header("Environment Animation")]
+        [SerializeField] private Transform firstClockHand;
+        [SerializeField] private Transform secondClockHand;
+        [SerializeField] private Transform shadowCaster;
+
+        [Header("Screen")]
         [SerializeField] private CanvasGroup screenFade;
-        [SerializeField, Min(0f)] private float blackoutChangeDelay = 0.16f;
-        [SerializeField, Min(0f)] private float blackoutPostChangeHold = 0.32f;
+        [SerializeField] private bool enableClimaxThreat;
 
-        [Header("Ending")]
-        [SerializeField] private GameObject endingCorridor;
-        [SerializeField] private GameObject endingWallMessage;
-        [SerializeField, Min(0f)] private float endingHold = 3.5f;
-        [SerializeField, Min(0.1f)] private float endingFadeDuration = 2.2f;
-
-        [Header("Audio")]
+        [Header("Audio Sources")]
         [SerializeField] private AudioSource ambientSource;
+        [SerializeField] private AudioSource clockSource;
         [SerializeField] private AudioSource rearSource;
         [SerializeField] private AudioSource threatSource;
+        [SerializeField] private AudioSource transitionSource;
+        [SerializeField] private AudioSource windSource;
         [SerializeField] private AudioSource oneShotSource;
-        [SerializeField] private AudioClip rearWarningClip;
+
+        [Header("Audio Clips")]
+        [SerializeField] private AudioClip clockTickClip;
+        [SerializeField] private AudioClip floorCreakClip;
+        [SerializeField] private AudioClip rearImpactClip;
         [SerializeField] private AudioClip threatBreathingClip;
-        [SerializeField] private AudioClip silhouetteWhooshClip;
         [SerializeField] private AudioClip threatDroneClip;
-        [SerializeField] private AudioClip endingVoiceClip;
+        [SerializeField] private AudioClip whiteNoiseClip;
+        [SerializeField] private AudioClip windClip;
+        [SerializeField] private AudioClip lampTickClip;
 
         [Header("Facts")]
         [SerializeField] private StoryFact lightSwitchUsedFact;
         [SerializeField] private StoryFact secondDoorOpenedFact;
         [SerializeField] private StoryFact enteredSecondRoomFact;
-        [SerializeField] private StoryFact enterCardDrawnFact;
-        [SerializeField] private StoryFact exitedSecondRoomFact;
-        [SerializeField] private StoryFact windowSilhouetteSeenFact;
+        [SerializeField] private StoryFact windowVisionSeenFact;
         [SerializeField] private StoryFact turnedAroundFact;
-        [SerializeField] private StoryFact doorSilhouetteSeenFact;
+        [SerializeField] private StoryFact turnTestResolvedFact;
         [SerializeField] private StoryFact leftRoomFact;
 
         private readonly List<(StorySignal signal, Action<StorySignalContext> handler)> subscriptions =
             new List<(StorySignal signal, Action<StorySignalContext> handler)>();
+        private readonly List<Renderer> threatRenderers = new List<Renderer>();
 
-        private float initialLightIntensity;
-        private float initialSecondLightIntensity;
+        private float initialLampIntensity;
+        private float initialSecondLampIntensity;
+        private float primaryLightBase;
+        private float secondLightBase;
         private float initialAmbientVolume;
-        private bool rearWarningActive;
-        private bool windowGazeArmed;
-        private bool doorCrackGazeArmed;
-        private bool turnTestActive;
-        private bool huntActive;
-        private bool inSecondRoom;
-        private bool endingExitArmed;
+        private float initialCameraFov;
+        private float initialLampColorTemperature;
+        private float initialSecondLampColorTemperature;
+        private Color initialLampColor;
+        private Color initialSecondLampColor;
+        private Vector3 baseViewLocalPosition;
+        private Quaternion initialViewLocalRotation;
+        private Vector3 lookReferenceForward;
         private Vector3 turnReferenceForward;
-        private Vector3 windowSilhouetteScale = Vector3.one;
-        private Vector3 doorSilhouetteScale = Vector3.one;
-        private Coroutine lightRoutine;
-        private Coroutine blackoutRoutine;
-        private Coroutine threatRoutine;
-        private Coroutine silhouetteRoutine;
-        private readonly Queue<BlackoutTransitionRequest> blackoutTransitions =
-            new Queue<BlackoutTransitionRequest>();
-        private bool blackoutActive;
-        private bool lightSwitchInteractionRequested;
-        private bool ceilingLightWasEnabled;
-        private bool secondRoomLightWasEnabled;
+        private Vector3 threatBaseScale = Vector3.one;
+        private Quaternion shadowInitialRotation;
+        private float flickerDipMultiplier = 1f;
+        private float nextClockTick;
+        private float nextFloorCreak;
+        private float windowGazeElapsed;
+        private float threatProgress;
+        private float scriptedShake;
+        private bool inSecondRoom;
+        private bool microFlickerPaused;
+        private bool sensoryFrozen;
+        private bool lookRuleActive;
+        private bool rearImpactTriggered;
+        private bool windowVisionArmed;
+        private bool huntActive;
+        private bool huntHovering;
+        private bool turnTestActive;
+        private bool turnViolationTriggered;
+        private bool endingExitArmed;
+        private bool endingActive;
+        private DeckFallbackRule fallbackRule;
+        private Coroutine lightFadeRoutine;
+        private Coroutine dipRoutine;
+        private Coroutine fallbackRoutine;
+        private Coroutine threatFadeRoutine;
+        private Coroutine sensoryRoutine;
+        private Coroutine turnRoutine;
+        private Coroutine endingRoutine;
 
-        private sealed class BlackoutTransitionRequest
-        {
-            public BlackoutTransitionRequest(Action duringBlackout, Action afterLightsReturn)
-            {
-                DuringBlackout = duringBlackout;
-                AfterLightsReturn = afterLightsReturn;
-            }
-
-            public Action DuringBlackout { get; }
-            public Action AfterLightsReturn { get; }
-        }
+        private CardDeckInteraction ActiveDeckInteraction => inSecondRoom
+            ? secondRoomInteraction
+            : primaryInteraction;
 
         private void Awake()
         {
-            if (runner == null)
-            {
-                runner = FindAnyObjectByType<CardSequenceRunner>();
-            }
-
+            runner ??= FindAnyObjectByType<CardSequenceRunner>();
             blackboard ??= runner != null ? runner.Blackboard : null;
-            if (playerView == null && Camera.main != null)
+            if (playerCamera == null)
             {
-                playerView = Camera.main.transform;
+                playerCamera = Camera.main;
+            }
+            if (playerView == null && playerCamera != null)
+            {
+                playerView = playerCamera.transform;
             }
 
-            initialLightIntensity = ceilingLight != null ? ceilingLight.intensity : 1f;
-            initialSecondLightIntensity = secondRoomLight != null ? secondRoomLight.intensity : initialLightIntensity;
+            initialLampIntensity = lampLight != null ? lampLight.intensity : 1f;
+            initialSecondLampIntensity = secondRoomLampLight != null
+                ? secondRoomLampLight.intensity
+                : initialLampIntensity * 0.9f;
+            primaryLightBase = initialLampIntensity;
+            secondLightBase = initialSecondLampIntensity;
+            initialLampColor = lampLight != null ? lampLight.color : new Color(1f, 0.73f, 0.46f);
+            initialSecondLampColor = secondRoomLampLight != null
+                ? secondRoomLampLight.color
+                : initialLampColor;
+            initialLampColorTemperature = lampLight != null ? lampLight.colorTemperature : 4200f;
+            initialSecondLampColorTemperature = secondRoomLampLight != null
+                ? secondRoomLampLight.colorTemperature
+                : initialLampColorTemperature;
             initialAmbientVolume = ambientSource != null ? ambientSource.volume : 0f;
+            initialCameraFov = playerCamera != null ? playerCamera.fieldOfView : 60f;
+            baseViewLocalPosition = playerView != null ? playerView.localPosition : Vector3.zero;
+            initialViewLocalRotation = playerView != null ? playerView.localRotation : Quaternion.identity;
+            threatBaseScale = threatSilhouette != null ? threatSilhouette.localScale : Vector3.one;
+            shadowInitialRotation = shadowCaster != null ? shadowCaster.localRotation : Quaternion.identity;
 
-            if (windowSilhouette != null)
-            {
-                windowSilhouetteScale = windowSilhouette.transform.localScale;
-                windowSilhouette.SetActive(false);
-            }
-
-            if (doorCrackSilhouette != null)
-            {
-                doorSilhouetteScale = doorCrackSilhouette.transform.localScale;
-                doorCrackSilhouette.SetActive(false);
-            }
-
-            if (threatSilhouette != null)
-            {
-                threatSilhouette.gameObject.SetActive(false);
-            }
-
-            lightSwitchInteractionRequested = false;
-            lightSwitch?.SetInteractionEnabled(false);
-            lightSwitchRoot?.SetActive(false);
-            secondDoorRoot?.SetActive(false);
-            secondDoorCover?.SetActive(true);
-            endingCorridor?.SetActive(false);
-            endingWallMessage?.SetActive(false);
-
-            primaryInteraction?.SetInteractionEnabled(true);
-            secondRoomInteraction?.SetInteractionEnabled(false);
-            returnZone?.SetTriggerEnabled(false);
-            endingZone?.SetTriggerEnabled(false);
-
-            if (screenFade != null)
-            {
-                screenFade.alpha = 0f;
-                screenFade.blocksRaycasts = false;
-                screenFade.interactable = false;
-            }
+            CacheThreatMaterials();
+            ResetSceneState();
         }
 
         private void OnEnable()
         {
             SubscribeToSignals();
-
             if (runner != null)
             {
                 runner.CardDrawStarted += HandleCardDrawStarted;
                 runner.CardRevealed += HandleCardRevealed;
             }
-
             if (lightSwitch != null)
             {
-                lightSwitch.Activated += HandleLightSwitchActivated;
+                lightSwitch.StateChanged += HandleLightSwitchStateChanged;
             }
-
             if (secondDoor != null)
             {
                 secondDoor.PlayerOpened += HandleSecondDoorOpened;
             }
+            if (primaryInteraction != null)
+            {
+                primaryInteraction.BlockedDrawRequested += HandleBlockedDrawRequested;
+            }
+            if (secondRoomInteraction != null)
+            {
+                secondRoomInteraction.BlockedDrawRequested += HandleBlockedDrawRequested;
+            }
 
             SubscribeZone(secondRoomZone);
-            SubscribeZone(returnZone);
             SubscribeZone(endingZone);
         }
 
         private void OnDisable()
         {
-            if (blackoutRoutine != null)
-            {
-                StopCoroutine(blackoutRoutine);
-                blackoutRoutine = null;
-            }
-
-            blackoutTransitions.Clear();
-            RestoreFromBlackout();
-
             foreach ((StorySignal signal, Action<StorySignalContext> handler) in subscriptions)
             {
                 if (signal != null)
@@ -254,59 +273,130 @@ namespace DoNotDraw.World
                     signal.Raised -= handler;
                 }
             }
-
             subscriptions.Clear();
-
             if (runner != null)
             {
                 runner.CardDrawStarted -= HandleCardDrawStarted;
                 runner.CardRevealed -= HandleCardRevealed;
             }
-
             if (lightSwitch != null)
             {
-                lightSwitch.Activated -= HandleLightSwitchActivated;
+                lightSwitch.StateChanged -= HandleLightSwitchStateChanged;
             }
-
             if (secondDoor != null)
             {
                 secondDoor.PlayerOpened -= HandleSecondDoorOpened;
             }
-
+            if (primaryInteraction != null)
+            {
+                primaryInteraction.BlockedDrawRequested -= HandleBlockedDrawRequested;
+            }
+            if (secondRoomInteraction != null)
+            {
+                secondRoomInteraction.BlockedDrawRequested -= HandleBlockedDrawRequested;
+            }
             UnsubscribeZone(secondRoomZone);
-            UnsubscribeZone(returnZone);
             UnsubscribeZone(endingZone);
+            ClearFallback();
+            if (playerView != null)
+            {
+                playerView.localPosition = baseViewLocalPosition;
+            }
+            if (playerCamera != null)
+            {
+                playerCamera.fieldOfView = initialCameraFov;
+            }
         }
 
         private void Update()
         {
-            if (rearWarningActive && IsLookingAt(rearWarningTarget, rearLookDot))
+            UpdateAmbientDetails();
+            UpdateLampFlicker();
+            UpdateRearLookRule();
+            UpdateWindowGaze();
+            UpdateThreat();
+            UpdateTurnTest();
+            UpdateExitCamera();
+        }
+
+        private void LateUpdate()
+        {
+            if (playerView == null)
             {
-                StopRearWarning();
+                return;
+            }
+            float hoverScale = huntHovering ? 0.5f : 1f;
+            float huntShake = huntActive ? 0.0035f * hoverScale : 0f;
+            float idle = endingActive || sensoryFrozen ? 0f : Mathf.Sin(Time.unscaledTime * 1.15f) * 0.0022f;
+            Vector3 random = UnityEngine.Random.insideUnitSphere * (scriptedShake + huntShake);
+            random.z *= 0.3f;
+            playerView.localPosition = baseViewLocalPosition + new Vector3(0f, idle, 0f) + random;
+        }
+
+        private void ResetSceneState()
+        {
+            inSecondRoom = false;
+            endingActive = false;
+            endingExitArmed = false;
+            lookRuleActive = false;
+            windowVisionArmed = false;
+            huntActive = false;
+            turnTestActive = false;
+            sensoryFrozen = false;
+            microFlickerPaused = false;
+            fallbackRule = DeckFallbackRule.None;
+
+            firstRoomSet?.SetActive(true);
+            secondRoomSet?.SetActive(true);
+            lightSwitchRoot?.SetActive(false);
+            lightSwitch?.ResetSwitch(true);
+            lightSwitch?.SetInteractionEnabled(false);
+            secondDoorRoot?.SetActive(false);
+            secondDoorCover?.SetActive(true);
+            secondDoor?.SnapClosed();
+            secondDoor?.SetInteractionEnabled(false);
+            storyDoor?.SnapClosed();
+            storyDoor?.SetInteractionEnabled(false);
+            secondRoomZone?.SetTriggerEnabled(true);
+            endingZone?.SetTriggerEnabled(false);
+
+            windowVision?.SetActive(false);
+            endingPortraitSilhouette?.SetActive(false);
+            if (threatSilhouette != null)
+            {
+                threatSilhouette.gameObject.SetActive(false);
+                threatSilhouette.localScale = threatBaseScale;
             }
 
-            if (windowGazeArmed && IsLookingAt(windowGazeTarget, focusedLookDot))
+            SetLightEnabled(lampLight, true);
+            SetLightEnabled(secondRoomLampLight, true);
+            SetLightEnabled(moonLight, false);
+            SetLightEnabled(rearDoorRimLight, false);
+            SetLightEnabled(silhouetteBacklight, false);
+            SetLightEnabled(exitLight, false);
+            if (lampLight != null)
             {
-                windowGazeArmed = false;
-                SetFact(windowSilhouetteSeenFact, true);
-                PlayOneShot(silhouetteWhooshClip, 0.68f);
-                HideSilhouette(windowSilhouette);
+                lampLight.color = initialLampColor;
+                lampLight.colorTemperature = initialLampColorTemperature;
+            }
+            if (secondRoomLampLight != null)
+            {
+                secondRoomLampLight.color = initialSecondLampColor;
+                secondRoomLampLight.colorTemperature = initialSecondLampColorTemperature;
             }
 
-            if (doorCrackGazeArmed && IsLookingAt(doorCrackGazeTarget, focusedLookDot))
+            primaryInteraction?.SetInteractionEnabled(false);
+            primaryInteraction?.SetBlockedDrawInteractionEnabled(false);
+            secondRoomInteraction?.SetInteractionEnabled(false);
+            secondRoomInteraction?.SetBlockedDrawInteractionEnabled(false);
+            if (screenFade != null)
             {
-                doorCrackGazeArmed = false;
-                SetFact(doorSilhouetteSeenFact, true);
-                PlayOneShot(silhouetteWhooshClip, 0.72f);
-                QueueBlackoutTransition(
-                    () => HideSilhouette(doorCrackSilhouette),
-                    () => runner?.RequestExternalAdvance());
+                screenFade.alpha = 1f;
+                screenFade.blocksRaycasts = true;
+                screenFade.interactable = false;
             }
-
-            if (turnTestActive && HasTurnedAround())
-            {
-                SetFact(turnedAroundFact, true);
-            }
+            nextClockTick = Time.unscaledTime + 1f;
+            nextFloorCreak = Time.unscaledTime + UnityEngine.Random.Range(15f, 20f);
         }
 
         private void SubscribeToSignals()
@@ -318,7 +408,6 @@ namespace DoNotDraw.World
                 {
                     continue;
                 }
-
                 ClosedRoomCue cue = binding.Cue;
                 Action<StorySignalContext> handler = _ => HandleCue(cue);
                 binding.Signal.Raised += handler;
@@ -330,147 +419,341 @@ namespace DoNotDraw.World
         {
             switch (cue)
             {
-                case ClosedRoomCue.StartRearWarning:
-                    StartRearWarning();
+                case ClosedRoomCue.BeginOpening:
+                    StartCoroutine(OpeningRoutine());
                     break;
-                case ClosedRoomCue.RevealLightSwitch:
-                    RevealLightSwitch();
+                case ClosedRoomCue.PulseOpeningCard:
+                    StartCardDip(0.8f, 0.2f, true);
                     break;
-                case ClosedRoomCue.EnableLightSwitchInteraction:
-                    lightSwitchInteractionRequested = true;
-                    RefreshLightSwitchInteraction();
+                case ClosedRoomCue.StartRearLookRule:
+                    StartRearLookRule();
                     break;
-                case ClosedRoomCue.EnableSecondDoorInteraction:
-                    secondDoor?.SetInteractionEnabled(true);
+                case ClosedRoomCue.ArmLightRule:
+                    ArmLightRule();
                     break;
-                case ClosedRoomCue.MarkEnterCardDrawn:
-                    SetFact(enterCardDrawnFact, true);
+                case ClosedRoomCue.ArmSecondDoorRule:
+                    ArmSecondDoorRule();
                     break;
-                case ClosedRoomCue.SlamSecondDoor:
-                    secondDoor?.SetInteractionEnabled(false);
-                    secondDoor?.CloseWithSlam();
+                case ClosedRoomCue.ArmEnterRule:
+                    ArmEnterRule();
                     break;
-                case ClosedRoomCue.ShowWindowSilhouette:
-                    ShowWindowSilhouette();
+                case ClosedRoomCue.BeginActOneToTwo:
+                    StartCoroutine(ActOneToTwoRoutine());
                     break;
-                case ClosedRoomCue.DarkenForHunt:
-                    DarkenForHunt();
+                case ClosedRoomCue.ResumeAtmosphere:
+                    ResumeAtmosphere();
                     break;
-                case ClosedRoomCue.StartHunt:
-                    StartHunt();
+                case ClosedRoomCue.ArmWindowVision:
+                    ArmWindowVision();
                     break;
-                case ClosedRoomCue.SettleAfterHunt:
-                    SettleAfterHunt();
+                case ClosedRoomCue.PauseSensoryBeat:
+                    PauseSensoryBeat();
+                    break;
+                case ClosedRoomCue.BeginActTwoToThree:
+                    StartCoroutine(ActTwoToThreeRoutine());
+                    break;
+                case ClosedRoomCue.StartHuntFar:
+                    StartHunt(false);
+                    break;
+                case ClosedRoomCue.StartHuntClose:
+                    StartHunt(true);
+                    break;
+                case ClosedRoomCue.BeginActThreeToFour:
+                    StartCoroutine(ActThreeToFourRoutine());
                     break;
                 case ClosedRoomCue.StartTurnAroundTest:
                     StartTurnAroundTest();
                     break;
-                case ClosedRoomCue.OpenDoorByItself:
-                    secondDoor?.OpenPartially();
+                case ClosedRoomCue.ScheduleFirstDoorOpen:
+                    StartCoroutine(OpenStoryDoorAfterDelay());
                     break;
-                case ClosedRoomCue.ShowDoorCrackSilhouette:
-                    ShowDoorCrackSilhouette();
+                case ClosedRoomCue.SwingUnnaturalShadow:
+                    StartCoroutine(SwingShadowRoutine());
                     break;
                 case ClosedRoomCue.OpenExit:
                     OpenExit();
                     break;
+                case ClosedRoomCue.PrepareEnding:
+                    PrepareEndingReset();
+                    break;
                 case ClosedRoomCue.ShowEnding:
-                    StartCoroutine(EndingRoutine());
+                    if (endingRoutine != null)
+                    {
+                        StopCoroutine(endingRoutine);
+                    }
+                    endingRoutine = StartCoroutine(EndingZoomRoutine());
                     break;
             }
         }
 
-        private void StartRearWarning()
+        private IEnumerator OpeningRoutine()
         {
-            rearWarningActive = true;
-            if (rearSource == null || rearWarningClip == null)
+            primaryLightBase = 0f;
+            secondLightBase = 0f;
+            SetLightEnabled(lampLight, true);
+            SetLightEnabled(secondRoomLampLight, true);
+            if (screenFade != null)
+            {
+                screenFade.alpha = 1f;
+                screenFade.blocksRaycasts = true;
+            }
+            float elapsed = 0f;
+            const float duration = 2f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                t = t * t * (3f - 2f * t);
+                primaryLightBase = Mathf.Lerp(0f, initialLampIntensity, t);
+                secondLightBase = Mathf.Lerp(0f, initialSecondLampIntensity, t);
+                if (screenFade != null)
+                {
+                    screenFade.alpha = 1f - t;
+                }
+                yield return null;
+            }
+            primaryLightBase = initialLampIntensity;
+            secondLightBase = initialSecondLampIntensity;
+            if (screenFade != null)
+            {
+                screenFade.alpha = 0f;
+                screenFade.blocksRaycasts = false;
+            }
+            primaryInteraction?.SetInteractionEnabled(true);
+        }
+
+        private void StartRearLookRule()
+        {
+            StopRearLookRule();
+            Transform rimAnchor = inSecondRoom ? secondRoomRimAnchor : firstRoomRimAnchor;
+            if (rearDoorRimLight != null && rimAnchor != null)
+            {
+                rearDoorRimLight.transform.SetPositionAndRotation(rimAnchor.position, rimAnchor.rotation);
+            }
+            lookReferenceForward = HorizontalDirection(playerView != null ? playerView.forward : transform.forward);
+            lookRuleActive = true;
+            rearImpactTriggered = false;
+            if (rearSource != null && threatDroneClip != null)
+            {
+                rearSource.clip = threatDroneClip;
+                rearSource.loop = true;
+                rearSource.spatialBlend = 0f;
+                rearSource.volume = 0.032f;
+                rearSource.Play();
+            }
+        }
+
+        private void UpdateRearLookRule()
+        {
+            if (!lookRuleActive || playerView == null)
             {
                 return;
             }
-
-            if (rearWarningTarget != null)
-            {
-                rearSource.transform.position = rearWarningTarget.position;
-            }
-
-            rearSource.clip = rearWarningClip;
-            rearSource.loop = true;
-            rearSource.spatialBlend = 1f;
-            rearSource.volume = 0.48f;
-            rearSource.Play();
-        }
-
-        private void StopRearWarning()
-        {
-            rearWarningActive = false;
+            float angle = Vector3.Angle(lookReferenceForward, HorizontalDirection(playerView.forward));
+            bool rimVisible = angle >= 90f;
+            SetLightEnabled(rearDoorRimLight, rimVisible);
             if (rearSource != null)
             {
+                rearSource.volume = Mathf.Lerp(0.032f, 0.063f, Mathf.InverseLerp(90f, 150f, angle));
+            }
+            if (angle >= rearImpactAngle && !rearImpactTriggered)
+            {
+                rearImpactTriggered = true;
+                StartCoroutine(CameraShakeRoutine(0.008f, 0.3f));
+                PlayOneShot(rearImpactClip, 0.38f);
+            }
+            else if (angle < 20f)
+            {
+                rearImpactTriggered = false;
+            }
+        }
+
+        private void StopRearLookRule()
+        {
+            lookRuleActive = false;
+            rearImpactTriggered = false;
+            SetLightEnabled(rearDoorRimLight, false);
+            if (rearSource != null && rearSource.clip == threatDroneClip)
+            {
                 rearSource.Stop();
+                rearSource.clip = null;
             }
         }
 
-    private void RevealLightSwitch()
-    {
-        StopRearWarning();
-        // The switch becoming visible is the authoritative availability boundary.
-        // The later enable signal remains idempotent, so a missed/reordered cue
-        // cannot leave a visible switch permanently non-interactable.
-        lightSwitchInteractionRequested = true;
-        lightSwitch?.SetInteractionEnabled(false);
-        QueueBlackoutTransition(
-            () => lightSwitchRoot?.SetActive(true),
-                RefreshLightSwitchInteraction);
-        }
-
-        private void RefreshLightSwitchInteraction()
+        private void ArmLightRule()
         {
-            bool visible = lightSwitchRoot != null && lightSwitchRoot.activeInHierarchy;
-            lightSwitch?.SetInteractionEnabled(
-                lightSwitchInteractionRequested && visible && !blackoutActive);
+            lightSwitchRoot?.SetActive(true);
+            lightSwitch?.ResetSwitch(true);
+            lightSwitch?.SetInteractionEnabled(true);
+            ArmFallback(DeckFallbackRule.Light);
         }
 
-        private void HandleLightSwitchActivated(HorrorLightSwitchInteractable source)
+        private void HandleLightSwitchStateChanged(HorrorLightSwitchInteractable source, bool isOn)
         {
-            lightSwitchInteractionRequested = false;
-            StartCoroutine(LightSwitchCycleRoutine());
-        }
-
-        private IEnumerator LightSwitchCycleRoutine()
-        {
-            if (ceilingLight != null)
+            if (fallbackRule != DeckFallbackRule.Light)
             {
-                ceilingLight.enabled = false;
+                return;
             }
-            if (secondRoomLight != null)
+            if (!isOn)
             {
-                secondRoomLight.enabled = false;
+                SetLightEnabled(lampLight, false);
+                SetLightEnabled(secondRoomLampLight, false);
+                SetLightEnabled(moonLight, true);
+                source.SetInteractionEnabled(false);
+                StartCoroutine(ReenableSwitchAfterDarkHold(source));
+                return;
             }
-
-            yield return new WaitForSeconds(1.15f);
-
-            if (ceilingLight != null)
-            {
-                ceilingLight.enabled = true;
-                ceilingLight.intensity = initialLightIntensity;
-            }
-            if (secondRoomLight != null)
-            {
-                secondRoomLight.enabled = true;
-                secondRoomLight.intensity = initialSecondLightIntensity;
-            }
-
-            secondDoorCover?.SetActive(false);
-            secondDoorRoot?.SetActive(true);
-            secondDoor?.SnapClosed();
-            secondDoor?.SetInteractionEnabled(false);
+            ClearFallback();
+            SetLightEnabled(moonLight, false);
+            RestoreAlteredFluorescentLight();
+            RevealSecondDoor();
             SetFact(lightSwitchUsedFact, true);
             runner?.RequestExternalAdvance();
         }
 
+        private IEnumerator ReenableSwitchAfterDarkHold(HorrorLightSwitchInteractable source)
+        {
+            yield return new WaitForSecondsRealtime(1.65f);
+            if (fallbackRule == DeckFallbackRule.Light && source != null && !source.IsOn)
+            {
+                source.SetInteractionEnabled(true);
+            }
+        }
+
+        private void RestoreAlteredFluorescentLight()
+        {
+            if (lampLight != null)
+            {
+                lampLight.color = new Color(1f, 0.86f, 0.5f);
+                lampLight.colorTemperature = 3600f;
+            }
+            if (secondRoomLampLight != null)
+            {
+                secondRoomLampLight.color = new Color(1f, 0.86f, 0.5f);
+                secondRoomLampLight.colorTemperature = 3600f;
+            }
+            SetLightEnabled(lampLight, true);
+            SetLightEnabled(secondRoomLampLight, true);
+            PlayOneShot(rearImpactClip, 0.18f);
+        }
+
+        private void RevealSecondDoor()
+        {
+            secondDoorCover?.SetActive(false);
+            secondDoorRoot?.SetActive(true);
+            secondDoor?.SnapClosed();
+            secondDoor?.SetInteractionEnabled(false);
+        }
+
+        private void ArmSecondDoorRule()
+        {
+            RevealSecondDoor();
+            secondDoor?.SetInteractionEnabled(true);
+            ArmFallback(DeckFallbackRule.SecondDoor);
+        }
+
         private void HandleSecondDoorOpened(HorrorDoorInteractable source)
         {
+            if (fallbackRule != DeckFallbackRule.SecondDoor)
+            {
+                return;
+            }
+            ClearFallback();
             SetFact(secondDoorOpenedFact, true);
             runner?.RequestExternalAdvance();
+        }
+
+        private void ArmEnterRule()
+        {
+            secondRoomZone?.SetTriggerEnabled(true);
+            ArmFallback(DeckFallbackRule.Enter);
+        }
+
+        private void ArmFallback(DeckFallbackRule rule)
+        {
+            ClearFallback();
+            fallbackRule = rule;
+            ActiveDeckInteraction?.SetBlockedDrawInteractionEnabled(true);
+        }
+
+        private void ClearFallback()
+        {
+            fallbackRule = DeckFallbackRule.None;
+            primaryInteraction?.SetBlockedDrawInteractionEnabled(false);
+            secondRoomInteraction?.SetBlockedDrawInteractionEnabled(false);
+        }
+
+        private void HandleBlockedDrawRequested(CardDeckInteraction source)
+        {
+            if (fallbackRule == DeckFallbackRule.None || source != ActiveDeckInteraction || fallbackRoutine != null)
+            {
+                return;
+            }
+            DeckFallbackRule requestedRule = fallbackRule;
+            ClearFallback();
+            fallbackRoutine = StartCoroutine(ExecuteFallback(requestedRule));
+        }
+
+        private IEnumerator ExecuteFallback(DeckFallbackRule rule)
+        {
+            switch (rule)
+            {
+                case DeckFallbackRule.Light:
+                    SetLightEnabled(lampLight, false);
+                    SetLightEnabled(secondRoomLampLight, false);
+                    PlayOneShot(lampTickClip, 0.42f);
+                    yield return new WaitForSecondsRealtime(0.15f);
+                    RestoreAlteredFluorescentLight();
+                    RevealSecondDoor();
+                    lightSwitch?.SetInteractionEnabled(false);
+                    SetFact(lightSwitchUsedFact, true);
+                    runner?.RequestExternalAdvance();
+                    break;
+                case DeckFallbackRule.SecondDoor:
+                    secondDoor?.SetInteractionEnabled(false);
+                    secondDoor?.OpenPartially();
+                    yield return new WaitForSecondsRealtime(0.45f);
+                    SetFact(secondDoorOpenedFact, true);
+                    runner?.RequestExternalAdvance();
+                    break;
+                case DeckFallbackRule.Enter:
+                    yield return SnapPlayerIntoSecondRoom();
+                    EnterSecondRoom();
+                    break;
+            }
+            fallbackRoutine = null;
+        }
+
+        private IEnumerator SnapPlayerIntoSecondRoom()
+        {
+            if (playerRoot == null || secondRoomPlayerMarker == null)
+            {
+                yield break;
+            }
+            bool movementWasEnabled = movementController != null && movementController.enabled;
+            if (movementController != null)
+            {
+                movementController.enabled = false;
+            }
+            Vector3 startPosition = playerRoot.position;
+            Quaternion startRotation = playerRoot.rotation;
+            float elapsed = 0f;
+            const float duration = 0.3f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                t *= t;
+                playerRoot.SetPositionAndRotation(
+                    Vector3.Lerp(startPosition, secondRoomPlayerMarker.position, t),
+                    Quaternion.Slerp(startRotation, secondRoomPlayerMarker.rotation, t));
+                yield return null;
+            }
+            playerRoot.SetPositionAndRotation(secondRoomPlayerMarker.position, secondRoomPlayerMarker.rotation);
+            if (movementController != null)
+            {
+                movementController.enabled = movementWasEnabled;
+            }
         }
 
         private void HandleZoneEntered(NarrativeZoneId zoneId)
@@ -480,11 +763,8 @@ namespace DoNotDraw.World
                 case NarrativeZoneId.SecondRoom:
                     EnterSecondRoom();
                     break;
-                case NarrativeZoneId.ReturnedToFirstRoom:
-                    ReturnToFirstRoom();
-                    break;
                 case NarrativeZoneId.EndingCorridor:
-                    EnterEndingCorridor();
+                    EnterEndingExit();
                     break;
             }
         }
@@ -495,483 +775,723 @@ namespace DoNotDraw.World
             {
                 return;
             }
-
             inSecondRoom = true;
+            ClearFallback();
             primaryInteraction?.SetInteractionEnabled(false);
             secondRoomInteraction?.SetInteractionEnabled(true);
             if (runner != null && secondRoomPresenter != null)
             {
                 runner.SetPresenter(secondRoomPresenter, true);
             }
-
-            returnZone?.SetTriggerEnabled(true);
-            SetFact(exitedSecondRoomFact, false);
             SetFact(enteredSecondRoomFact, true);
             runner?.RequestExternalAdvance();
         }
 
-        private void ReturnToFirstRoom()
+        private IEnumerator ActOneToTwoRoutine()
         {
-            if (!inSecondRoom || endingExitArmed)
-            {
-                return;
-            }
+            FreezeAtmosphere();
+            yield return new WaitForSecondsRealtime(3f);
+            storyDoor?.TwistHandleByStory(2f, 45f);
+        }
 
-            inSecondRoom = false;
-            secondRoomInteraction?.SetInteractionEnabled(false);
-            primaryInteraction?.SetInteractionEnabled(true);
-            if (runner != null && primaryPresenter != null)
+        private void FreezeAtmosphere()
+        {
+            sensoryFrozen = true;
+            microFlickerPaused = true;
+            if (ambientSource != null)
             {
-                runner.SetPresenter(primaryPresenter, true);
+                ambientSource.volume = 0f;
             }
+            clockSource?.Stop();
+        }
 
-            SetFact(enteredSecondRoomFact, false);
-            SetFact(exitedSecondRoomFact, true);
-            if (!GetBool(enterCardDrawnFact))
+        private void ResumeAtmosphere()
+        {
+            sensoryFrozen = false;
+            microFlickerPaused = false;
+            if (ambientSource != null)
             {
-                runner?.RequestExternalAdvance();
+                ambientSource.volume = initialAmbientVolume;
+                if (!ambientSource.isPlaying)
+                {
+                    ambientSource.Play();
+                }
             }
         }
 
-        private void EnterEndingCorridor()
+        private void ArmWindowVision()
         {
-            if (!endingExitArmed)
+            windowGazeElapsed = 0f;
+            windowVisionArmed = true;
+            windowVision?.SetActive(false);
+        }
+
+        private void UpdateWindowGaze()
+        {
+            if (!windowVisionArmed || playerView == null || windowGazeTarget == null)
             {
                 return;
             }
+            Vector3 direction = windowGazeTarget.position - playerView.position;
+            bool focused = direction.sqrMagnitude < 0.001f
+                || Vector3.Dot(playerView.forward, direction.normalized) >= focusedLookDot;
+            windowGazeElapsed = focused
+                ? windowGazeElapsed + Time.deltaTime
+                : Mathf.Max(0f, windowGazeElapsed - Time.deltaTime * 2f);
+            if (windowGazeElapsed >= windowGazeDuration)
+            {
+                windowVisionArmed = false;
+                StartCoroutine(WindowVisionRoutine());
+            }
+        }
 
-            endingZone?.SetTriggerEnabled(false);
-            SetFact(leftRoomFact, true);
+        private IEnumerator WindowVisionRoutine()
+        {
+            windowVision?.SetActive(true);
+            if (transitionSource != null && whiteNoiseClip != null)
+            {
+                transitionSource.clip = whiteNoiseClip;
+                transitionSource.loop = false;
+                transitionSource.volume = 0.18f;
+                transitionSource.Play();
+            }
+            yield return new WaitForSecondsRealtime(1.5f);
+            windowVision?.SetActive(false);
+            if (transitionSource != null && transitionSource.clip == whiteNoiseClip)
+            {
+                transitionSource.Stop();
+            }
+            SetFact(windowVisionSeenFact, true);
             runner?.RequestExternalAdvance();
         }
 
-        private void ShowWindowSilhouette()
+        private void PauseSensoryBeat()
         {
-            if (GetBool(windowSilhouetteSeenFact))
+            if (sensoryRoutine != null)
             {
-                HideSilhouette(windowSilhouette);
-                return;
+                StopCoroutine(sensoryRoutine);
             }
-
-            windowGazeArmed = true;
-            ShowSilhouette(windowSilhouette, windowSilhouetteScale);
+            sensoryRoutine = StartCoroutine(SensoryBeatRoutine());
         }
 
-        private void DarkenForHunt()
+        private IEnumerator SensoryBeatRoutine()
         {
-            StartLightFade(initialLightIntensity * 0.42f, 2.8f);
-            if (ambientSource != null)
-            {
-                ambientSource.volume = initialAmbientVolume * 0.3f;
-            }
+            FreezeAtmosphere();
+            yield return new WaitForSecondsRealtime(1.25f);
+            ResumeAtmosphere();
+            sensoryRoutine = null;
+        }
 
-            if (oneShotSource != null && threatDroneClip != null)
+        private IEnumerator ActTwoToThreeRoutine()
+        {
+            sensoryFrozen = false;
+            microFlickerPaused = false;
+            StartLightFade(initialLampIntensity * 0.4f, initialSecondLampIntensity * 0.4f, 6f);
+            if (transitionSource != null && threatBreathingClip != null)
             {
-                oneShotSource.PlayOneShot(threatDroneClip, 0.22f);
+                transitionSource.clip = threatBreathingClip;
+                transitionSource.loop = true;
+                transitionSource.volume = 0f;
+                transitionSource.Play();
+            }
+            float elapsed = 0f;
+            const float duration = 3f;
+            float ambientStart = ambientSource != null ? ambientSource.volume : 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                if (ambientSource != null)
+                {
+                    ambientSource.volume = Mathf.Lerp(ambientStart, 0f, t);
+                }
+                if (transitionSource != null)
+                {
+                    transitionSource.volume = Mathf.Lerp(0f, 0.2f, t);
+                }
+                yield return null;
             }
         }
 
-        private void StartHunt()
+        private void StartHunt(bool close)
         {
             if (threatSilhouette == null || threatStart == null || threatEnd == null)
             {
                 return;
             }
-
-            StopThreatRoutine();
+            if (threatFadeRoutine != null)
+            {
+                StopCoroutine(threatFadeRoutine);
+                threatFadeRoutine = null;
+            }
+            if (transitionSource != null && transitionSource.clip == threatBreathingClip)
+            {
+                transitionSource.Stop();
+            }
             huntActive = true;
-            threatSilhouette.position = threatStart.position;
-            threatSilhouette.rotation = threatStart.rotation;
+            huntHovering = false;
+            threatProgress = close ? 0.42f : 0f;
             threatSilhouette.gameObject.SetActive(true);
-            threatRoutine = StartCoroutine(ThreatApproachRoutine());
-
+            threatSilhouette.localScale = threatBaseScale;
+            threatSilhouette.SetPositionAndRotation(
+                Vector3.Lerp(threatStart.position, threatEnd.position, threatProgress),
+                threatStart.rotation);
+            SetThreatAlpha(1f);
+            SetLightEnabled(silhouetteBacklight, true);
             if (threatSource != null && threatBreathingClip != null)
             {
                 threatSource.transform.position = threatSilhouette.position;
                 threatSource.clip = threatBreathingClip;
                 threatSource.loop = true;
                 threatSource.spatialBlend = 1f;
-                threatSource.volume = 0.16f;
+                threatSource.volume = close ? 0.31f : 0.14f;
                 threatSource.Play();
             }
         }
 
-        private IEnumerator ThreatApproachRoutine()
+        private void UpdateThreat()
         {
-            float elapsed = 0f;
-            Vector3 start = threatStart.position;
-            Vector3 target = threatEnd.position;
-            while (elapsed < threatApproachDuration)
+            if (!huntActive || threatSilhouette == null)
             {
-                elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / threatApproachDuration);
-                t = t * t;
-                threatSilhouette.position = Vector3.Lerp(start, target, t);
-                if (threatSource != null)
+                huntHovering = false;
+                return;
+            }
+            bool hovered = ActiveDeckInteraction != null && ActiveDeckInteraction.IsInteractionHighlighted;
+            if (hovered != huntHovering)
+            {
+                huntHovering = hovered;
+                if (hovered)
                 {
-                    threatSource.transform.position = threatSilhouette.position;
-                    threatSource.volume = Mathf.Lerp(0.14f, 0.62f, t);
-                }
-
-                yield return null;
-            }
-
-            threatRoutine = null;
-        }
-
-        private void HandleCardDrawStarted(CardDefinition card, int drawIndex)
-        {
-            if (rearWarningActive)
-            {
-                StopRearWarning();
-            }
-
-            if (huntActive)
-            {
-                StopThreatRoutine();
-            }
-
-            if (turnTestActive)
-            {
-                turnTestActive = false;
-                if (rearSource != null)
-                {
-                    rearSource.Stop();
+                    PlayOneShot(threatDroneClip, 0.12f);
                 }
             }
-        }
-
-        private void HandleCardRevealed(CardDefinition card, GameObject cardObject, int drawIndex)
-        {
-            if (huntActive)
+            if (!huntHovering)
             {
-                DismissThreat();
+                threatProgress = Mathf.Clamp01(
+                    threatProgress + Time.deltaTime / Mathf.Max(1f, threatApproachDuration));
             }
-        }
-
-        private void DismissThreat()
-        {
-            huntActive = false;
-            StopThreatRoutine();
-            if (threatSilhouette != null)
-            {
-                threatSilhouette.gameObject.SetActive(false);
-            }
-
+            float shaped = threatProgress * threatProgress;
+            threatSilhouette.position = Vector3.Lerp(threatStart.position, threatEnd.position, shaped);
             if (threatSource != null)
             {
-                threatSource.Stop();
+                threatSource.transform.position = threatSilhouette.position;
+                threatSource.volume = Mathf.Lerp(0.14f, 0.65f, shaped);
             }
         }
 
-        private void SettleAfterHunt()
+        private void DismissThreat(float duration)
         {
-            DismissThreat();
-            StartLightFade(initialLightIntensity * 0.68f, 1.6f);
+            if (threatFadeRoutine != null)
+            {
+                StopCoroutine(threatFadeRoutine);
+            }
+            threatFadeRoutine = StartCoroutine(DismissThreatRoutine(Mathf.Max(0.05f, duration)));
+        }
+
+        private IEnumerator DismissThreatRoutine(float duration)
+        {
+            huntActive = false;
+            huntHovering = false;
+            float startVolume = threatSource != null ? threatSource.volume : 0f;
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                SetThreatAlpha(1f - t);
+                if (threatSilhouette != null)
+                {
+                    threatSilhouette.localScale = Vector3.Lerp(threatBaseScale, threatBaseScale * 0.92f, t);
+                }
+                if (threatSource != null)
+                {
+                    threatSource.volume = Mathf.Lerp(startVolume, 0f, t);
+                }
+                yield return null;
+            }
+            if (threatSilhouette != null)
+            {
+                threatSilhouette.localScale = threatBaseScale;
+                threatSilhouette.gameObject.SetActive(false);
+            }
+            threatSource?.Stop();
+            SetLightEnabled(silhouetteBacklight, false);
+            SetThreatAlpha(1f);
+            threatFadeRoutine = null;
+        }
+
+        private IEnumerator ActThreeToFourRoutine()
+        {
+            if (huntActive || (threatSilhouette != null && threatSilhouette.gameObject.activeSelf))
+            {
+                DismissThreat(0.8f);
+            }
+            StartLightFade(initialLampIntensity * 0.55f, initialSecondLampIntensity * 0.55f, 1.4f);
+            yield return new WaitForSecondsRealtime(1.5f);
             if (rearSource != null && threatBreathingClip != null)
             {
+                rearSource.transform.position = threatEnd != null ? threatEnd.position : transform.position;
                 rearSource.clip = threatBreathingClip;
                 rearSource.loop = false;
                 rearSource.spatialBlend = 1f;
-                rearSource.volume = 0.2f;
+                rearSource.volume = 0.16f;
                 rearSource.Play();
+            }
+            yield return new WaitForSecondsRealtime(1f);
+            if (rearSource != null && rearSource.clip == threatBreathingClip)
+            {
+                rearSource.Stop();
             }
         }
 
         private void StartTurnAroundTest()
         {
-            turnTestActive = true;
-            SetFact(turnedAroundFact, false);
-            turnReferenceForward = HorizontalDirection(playerView != null ? playerView.forward : transform.forward);
-            StartRearWarning();
-            rearWarningActive = false;
-        }
-
-        private bool HasTurnedAround()
-        {
-            if (playerView == null)
+            if (turnRoutine != null)
             {
-                return false;
+                StopCoroutine(turnRoutine);
             }
-
-            Vector3 currentForward = HorizontalDirection(playerView.forward);
-            return Vector3.Angle(turnReferenceForward, currentForward) >= turnAroundAngle;
+            turnTestActive = true;
+            turnViolationTriggered = false;
+            turnReferenceForward = HorizontalDirection(playerView != null ? playerView.forward : transform.forward);
+            SetFact(turnedAroundFact, false);
+            SetFact(turnTestResolvedFact, false);
+            turnRoutine = StartCoroutine(TurnTestRoutine());
         }
 
-        private void ShowDoorCrackSilhouette()
+        private void UpdateTurnTest()
         {
-            if (GetBool(doorSilhouetteSeenFact))
+            if (!turnTestActive || turnViolationTriggered || playerView == null)
             {
-                HideSilhouette(doorCrackSilhouette);
                 return;
             }
+            float angle = Vector3.Angle(turnReferenceForward, HorizontalDirection(playerView.forward));
+            if (angle >= rearImpactAngle)
+            {
+                turnViolationTriggered = true;
+                SetFact(turnedAroundFact, true);
+                StartCoroutine(FrameBlackoutRoutine());
+            }
+        }
 
-            secondDoor?.OpenPartially();
-            doorCrackGazeArmed = true;
-            ShowSilhouette(doorCrackSilhouette, doorSilhouetteScale);
+        private IEnumerator TurnTestRoutine()
+        {
+            for (int step = 0; step < 4; step++)
+            {
+                if (rearSource != null && floorCreakClip != null)
+                {
+                    rearSource.transform.position = playerRoot != null
+                        ? playerRoot.position - playerRoot.forward * (2.2f - step * 0.35f)
+                        : transform.position;
+                    rearSource.spatialBlend = 1f;
+                    rearSource.volume = 0.36f + step * 0.04f;
+                    rearSource.PlayOneShot(floorCreakClip, 0.5f);
+                }
+                yield return new WaitForSecondsRealtime(0.62f);
+            }
+            yield return new WaitForSecondsRealtime(3f);
+            turnTestActive = false;
+            if (!turnViolationTriggered)
+            {
+                StartLightFade(primaryLightBase * 1.03f, secondLightBase * 1.03f, 0.35f);
+            }
+            SetFact(turnTestResolvedFact, true);
+            runner?.RequestExternalAdvance();
+            turnRoutine = null;
+        }
+
+        private IEnumerator FrameBlackoutRoutine()
+        {
+            if (screenFade == null)
+            {
+                yield break;
+            }
+            screenFade.alpha = 1f;
+            yield return null;
+            yield return null;
+            screenFade.alpha = 0f;
+        }
+
+        private IEnumerator OpenStoryDoorAfterDelay()
+        {
+            yield return new WaitForSecondsRealtime(4f);
+            if (storyDoor != null)
+            {
+                AudioSource source = storyDoor.GetComponent<AudioSource>();
+                if (source != null)
+                {
+                    source.pitch = 0.9f;
+                }
+                storyDoor.OpenByStory();
+            }
+        }
+
+        private IEnumerator SwingShadowRoutine()
+        {
+            if (shadowCaster == null)
+            {
+                yield break;
+            }
+            Quaternion target = shadowInitialRotation * Quaternion.Euler(0f, 38f, 0f);
+            float elapsed = 0f;
+            const float duration = 1f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                shadowCaster.localRotation = Quaternion.Slerp(
+                    shadowInitialRotation,
+                    target,
+                    Mathf.Sin(t * Mathf.PI));
+                yield return null;
+            }
+            shadowCaster.localRotation = shadowInitialRotation;
         }
 
         private void OpenExit()
         {
             endingExitArmed = true;
-            returnZone?.SetTriggerEnabled(false);
-            endingCorridor?.SetActive(true);
+            storyDoor?.OpenByStory();
+            SetLightEnabled(exitLight, true);
             endingZone?.SetTriggerEnabled(true);
-            secondDoor?.OpenByStory();
+            if (windSource != null && windClip != null)
+            {
+                windSource.clip = windClip;
+                windSource.loop = true;
+                windSource.volume = 0.12f;
+                windSource.Play();
+            }
+            if (enableClimaxThreat)
+            {
+                StartHunt(true);
+            }
         }
 
-        private IEnumerator EndingRoutine()
+        private void UpdateExitCamera()
         {
-            endingWallMessage?.SetActive(true);
-            PlayOneShot(endingVoiceClip, 0.82f);
-            yield return new WaitForSeconds(endingHold);
+            if (playerCamera == null || endingActive)
+            {
+                return;
+            }
+            float target = initialCameraFov;
+            if (endingExitArmed && storyDoor != null && playerView != null)
+            {
+                Vector3 toDoor = storyDoor.transform.position - playerView.position;
+                if (toDoor.sqrMagnitude > 0.01f
+                    && Vector3.Dot(playerView.forward, toDoor.normalized) > 0.45f)
+                {
+                    target = initialCameraFov + 4f;
+                }
+            }
+            else if ((lightSwitch != null && lightSwitch.IsInteractionHighlighted)
+                     || (secondDoor != null && secondDoor.IsInteractionHighlighted))
+            {
+                target = initialCameraFov - 2f;
+            }
+            playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, target, Time.deltaTime * 5f);
+        }
 
+        private void EnterEndingExit()
+        {
+            if (!endingExitArmed)
+            {
+                return;
+            }
+            endingZone?.SetTriggerEnabled(false);
+            SetFact(leftRoomFact, true);
+            runner?.RequestExternalAdvance();
+        }
+
+        private void PrepareEndingReset()
+        {
+            endingActive = true;
+            endingExitArmed = false;
+            ClearFallback();
+            StopRearLookRule();
+            if (threatFadeRoutine != null)
+            {
+                StopCoroutine(threatFadeRoutine);
+                threatFadeRoutine = null;
+            }
+            huntActive = false;
+            if (threatSilhouette != null)
+            {
+                threatSilhouette.gameObject.SetActive(false);
+            }
+            threatSource?.Stop();
             if (movementController != null)
             {
                 movementController.enabled = false;
             }
-
-            if (screenFade == null)
+            if (playerRoot != null && playerStartMarker != null)
             {
-                yield break;
+                playerRoot.SetPositionAndRotation(playerStartMarker.position, playerStartMarker.rotation);
             }
-
-            screenFade.blocksRaycasts = true;
-            float elapsed = 0f;
-            while (elapsed < endingFadeDuration)
+            if (playerView != null)
             {
-                elapsed += Time.unscaledDeltaTime;
-                screenFade.alpha = Mathf.Clamp01(elapsed / endingFadeDuration);
-                yield return null;
+                playerView.localRotation = initialViewLocalRotation;
             }
-
-            screenFade.alpha = 1f;
-        }
-
-        private bool IsLookingAt(Transform target, float dotThreshold)
-        {
-            if (playerView == null || target == null)
+            inSecondRoom = false;
+            firstRoomSet?.SetActive(true);
+            secondRoomSet?.SetActive(false);
+            lightSwitchRoot?.SetActive(false);
+            secondDoorRoot?.SetActive(false);
+            secondDoorCover?.SetActive(true);
+            endingPortraitSilhouette?.SetActive(true);
+            SetLightEnabled(lampLight, true);
+            SetLightEnabled(secondRoomLampLight, false);
+            SetLightEnabled(moonLight, false);
+            SetLightEnabled(rearDoorRimLight, false);
+            SetLightEnabled(silhouetteBacklight, false);
+            SetLightEnabled(exitLight, false);
+            primaryLightBase = initialLampIntensity;
+            if (lampLight != null)
             {
-                return false;
+                lampLight.color = initialLampColor;
+                lampLight.colorTemperature = initialLampColorTemperature;
             }
-
-            Vector3 direction = target.position - playerView.position;
-            if (direction.sqrMagnitude < 0.001f)
+            windSource?.Stop();
+            transitionSource?.Stop();
+            if (ambientSource != null)
             {
-                return true;
-            }
-
-            return Vector3.Dot(playerView.forward, direction.normalized) >= dotThreshold;
-        }
-
-        private void ShowSilhouette(GameObject silhouette, Vector3 targetScale)
-        {
-            if (silhouette == null)
-            {
-                return;
-            }
-
-            if (silhouetteRoutine != null)
-            {
-                StopCoroutine(silhouetteRoutine);
-            }
-
-            silhouetteRoutine = StartCoroutine(ScaleSilhouetteRoutine(silhouette, Vector3.zero, targetScale, true));
-        }
-
-        private void HideSilhouette(GameObject silhouette)
-        {
-            if (silhouette == null)
-            {
-                return;
-            }
-
-            silhouette.SetActive(false);
-        }
-
-        private IEnumerator ScaleSilhouetteRoutine(
-            GameObject silhouette,
-            Vector3 start,
-            Vector3 target,
-            bool activate)
-        {
-            silhouette.SetActive(activate);
-            silhouette.transform.localScale = start;
-            float elapsed = 0f;
-            const float duration = 1.2f;
-            while (elapsed < duration)
-            {
-                elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
-                silhouette.transform.localScale = Vector3.Lerp(start, target, t * t * (3f - 2f * t));
-                yield return null;
-            }
-
-            silhouette.transform.localScale = target;
-            silhouetteRoutine = null;
-        }
-
-        private void QueueBlackoutTransition(Action duringBlackout, Action afterLightsReturn = null)
-        {
-            blackoutTransitions.Enqueue(new BlackoutTransitionRequest(duringBlackout, afterLightsReturn));
-            if (blackoutRoutine == null)
-            {
-                blackoutRoutine = StartCoroutine(BlackoutTransitionRoutine());
-            }
-        }
-
-        private IEnumerator BlackoutTransitionRoutine()
-        {
-            while (blackoutTransitions.Count > 0)
-            {
-                BlackoutTransitionRequest request = blackoutTransitions.Dequeue();
-                EnterBlackout();
-
-                // Keep at least one fully rendered black frame before mutating the scene.
-                yield return null;
-                if (blackoutChangeDelay > 0f)
+                ambientSource.volume = initialAmbientVolume;
+                if (!ambientSource.isPlaying)
                 {
-                    yield return new WaitForSecondsRealtime(blackoutChangeDelay);
+                    ambientSource.Play();
                 }
-
-                try
-                {
-                    request.DuringBlackout?.Invoke();
-                }
-                catch (Exception exception)
-                {
-                    Debug.LogException(exception, this);
-                }
-
-                if (blackoutPostChangeHold > 0f)
-                {
-                    yield return new WaitForSecondsRealtime(blackoutPostChangeHold);
-                }
-
-                RestoreFromBlackout();
-                try
-                {
-                    request.AfterLightsReturn?.Invoke();
-                }
-                catch (Exception exception)
-                {
-                    Debug.LogException(exception, this);
-                }
-
-                // Ensure the restored room is rendered before another queued blackout begins.
-                yield return null;
             }
-
-            blackoutRoutine = null;
-        }
-
-        private void EnterBlackout()
-        {
-            if (lightRoutine != null)
+            secondRoomInteraction?.SetInteractionEnabled(false);
+            primaryInteraction?.SetInteractionEnabled(false);
+            if (runner != null && primaryPresenter != null)
             {
-                StopCoroutine(lightRoutine);
-                lightRoutine = null;
+                int deckSize = runner.Sequence != null ? runner.Sequence.VisualDeckSize : 48;
+                primaryPresenter.ResetPresentation(Mathf.Max(48, deckSize));
+                primaryPresenter.SetDeckThicknessMultiplier(3.7f);
+                runner.SetPresenter(primaryPresenter, false);
             }
-
-            blackoutActive = true;
-            ceilingLightWasEnabled = ceilingLight != null && ceilingLight.enabled;
-            secondRoomLightWasEnabled = secondRoomLight != null && secondRoomLight.enabled;
-            if (ceilingLight != null)
+            if (playerCamera != null)
             {
-                ceilingLight.enabled = false;
+                playerCamera.fieldOfView = initialCameraFov;
             }
-
-            if (secondRoomLight != null)
-            {
-                secondRoomLight.enabled = false;
-            }
-
-            if (screenFade != null)
-            {
-                screenFade.alpha = 1f;
-                screenFade.blocksRaycasts = true;
-                screenFade.interactable = false;
-            }
-        }
-
-        private void RestoreFromBlackout()
-        {
-            if (!blackoutActive)
-            {
-                return;
-            }
-
-            if (ceilingLight != null)
-            {
-                ceilingLight.enabled = ceilingLightWasEnabled;
-            }
-
-            if (secondRoomLight != null)
-            {
-                secondRoomLight.enabled = secondRoomLightWasEnabled;
-            }
-
             if (screenFade != null)
             {
                 screenFade.alpha = 0f;
                 screenFade.blocksRaycasts = false;
-                screenFade.interactable = false;
             }
-
-            blackoutActive = false;
         }
 
-        private void StartLightFade(float targetIntensity, float duration)
+        private IEnumerator EndingZoomRoutine()
         {
-            if (ceilingLight == null)
+            float startFov = playerCamera != null ? playerCamera.fieldOfView : initialCameraFov;
+            float elapsed = 0f;
+            const float zoomDuration = 5f;
+            while (elapsed < zoomDuration)
             {
-                return;
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / zoomDuration);
+                t = t * t * (3f - 2f * t);
+                if (playerCamera != null)
+                {
+                    playerCamera.fieldOfView = Mathf.Lerp(startFov, 24f, t);
+                }
+                yield return null;
             }
-
-            if (lightRoutine != null)
+            if (screenFade != null)
             {
-                StopCoroutine(lightRoutine);
+                screenFade.blocksRaycasts = true;
+                elapsed = 0f;
+                while (elapsed < 1f)
+                {
+                    elapsed += Time.unscaledDeltaTime;
+                    screenFade.alpha = Mathf.Clamp01(elapsed);
+                    yield return null;
+                }
+                screenFade.alpha = 1f;
             }
-
-            lightRoutine = StartCoroutine(LightFadeRoutine(targetIntensity, duration));
+            endingRoutine = null;
         }
 
-        private IEnumerator LightFadeRoutine(float targetIntensity, float duration)
+        private void HandleCardDrawStarted(CardDefinition card, int drawIndex)
         {
-            ceilingLight.enabled = true;
-            float start = ceilingLight.intensity;
-            float secondStart = secondRoomLight != null ? secondRoomLight.intensity : start;
-            float secondTarget = initialLightIntensity > 0.001f
-                ? targetIntensity / initialLightIntensity * initialSecondLightIntensity
-                : targetIntensity;
+            ClearFallback();
+            StopRearLookRule();
+            if (windowVisionArmed)
+            {
+                windowVisionArmed = false;
+                windowVision?.SetActive(false);
+            }
+            if (huntActive)
+            {
+                DismissThreat(2f);
+            }
+        }
+
+        private void HandleCardRevealed(CardDefinition card, GameObject cardObject, int drawIndex)
+        {
+            if (!sensoryFrozen && !endingActive)
+            {
+                StartCardDip(0.84f, 0.2f, false);
+            }
+        }
+
+        private void StartCardDip(float minimumMultiplier, float duration, bool playTick)
+        {
+            if (dipRoutine != null)
+            {
+                StopCoroutine(dipRoutine);
+            }
+            dipRoutine = StartCoroutine(CardDipRoutine(minimumMultiplier, duration, playTick));
+        }
+
+        private IEnumerator CardDipRoutine(float minimumMultiplier, float duration, bool playTick)
+        {
+            if (playTick)
+            {
+                PlayOneShot(lampTickClip, 0.38f);
+            }
+            float half = Mathf.Max(0.01f, duration * 0.5f);
             float elapsed = 0f;
             while (elapsed < duration)
             {
                 elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
-                ceilingLight.intensity = Mathf.Lerp(start, targetIntensity, t);
-                if (secondRoomLight != null)
-                {
-                    secondRoomLight.enabled = true;
-                    secondRoomLight.intensity = Mathf.Lerp(secondStart, secondTarget, t);
-                }
+                float t = elapsed < half
+                    ? Mathf.Clamp01(elapsed / half)
+                    : Mathf.Clamp01((duration - elapsed) / half);
+                flickerDipMultiplier = Mathf.Lerp(1f, minimumMultiplier, t);
                 yield return null;
             }
-
-            ceilingLight.intensity = targetIntensity;
-            if (secondRoomLight != null)
-            {
-                secondRoomLight.intensity = secondTarget;
-            }
-            lightRoutine = null;
+            flickerDipMultiplier = 1f;
+            dipRoutine = null;
         }
 
-        private void StopThreatRoutine()
+        private void UpdateAmbientDetails()
         {
-            if (threatRoutine != null)
+            if (sensoryFrozen)
             {
-                StopCoroutine(threatRoutine);
-                threatRoutine = null;
+                return;
+            }
+            float rotation = Time.deltaTime * 6f;
+            firstClockHand?.Rotate(0f, 0f, -rotation, Space.Self);
+            secondClockHand?.Rotate(0f, 0f, rotation, Space.Self);
+            if (Time.unscaledTime >= nextClockTick)
+            {
+                nextClockTick = Time.unscaledTime + 1f;
+                if (clockSource != null && clockTickClip != null)
+                {
+                    clockSource.PlayOneShot(clockTickClip, 0.24f);
+                }
+            }
+            if (!endingActive && Time.unscaledTime >= nextFloorCreak)
+            {
+                nextFloorCreak = Time.unscaledTime + UnityEngine.Random.Range(15f, 20f);
+                if (rearSource != null && floorCreakClip != null && !rearSource.isPlaying)
+                {
+                    rearSource.transform.position = playerRoot != null
+                        ? playerRoot.position + UnityEngine.Random.onUnitSphere * 2f
+                        : transform.position;
+                    rearSource.spatialBlend = 1f;
+                    rearSource.volume = 0.09f;
+                    rearSource.PlayOneShot(floorCreakClip, 0.18f);
+                }
+            }
+        }
+
+        private void UpdateLampFlicker()
+        {
+            float flicker = 1f;
+            if (!microFlickerPaused && !sensoryFrozen)
+            {
+                float slow = Mathf.PerlinNoise(Time.unscaledTime * 2.17f, 0.31f) - 0.5f;
+                float fast = Mathf.PerlinNoise(Time.unscaledTime * 7.91f, 0.73f) - 0.5f;
+                flicker += (slow * 1.45f + fast * 0.55f) * flickerAmplitude;
+            }
+            if (lampLight != null && lampLight.enabled)
+            {
+                lampLight.intensity = primaryLightBase * flicker * flickerDipMultiplier;
+            }
+            if (secondRoomLampLight != null && secondRoomLampLight.enabled)
+            {
+                secondRoomLampLight.intensity = secondLightBase * flicker * flickerDipMultiplier;
+            }
+        }
+
+        private void StartLightFade(float primaryTarget, float secondTarget, float duration)
+        {
+            if (lightFadeRoutine != null)
+            {
+                StopCoroutine(lightFadeRoutine);
+            }
+            lightFadeRoutine = StartCoroutine(LightFadeRoutine(primaryTarget, secondTarget, duration));
+        }
+
+        private IEnumerator LightFadeRoutine(float primaryTarget, float secondTarget, float duration)
+        {
+            float primaryStart = primaryLightBase;
+            float secondStart = secondLightBase;
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / Mathf.Max(0.01f, duration));
+                primaryLightBase = Mathf.Lerp(primaryStart, primaryTarget, t);
+                secondLightBase = Mathf.Lerp(secondStart, secondTarget, t);
+                yield return null;
+            }
+            primaryLightBase = primaryTarget;
+            secondLightBase = secondTarget;
+            lightFadeRoutine = null;
+        }
+
+        private IEnumerator CameraShakeRoutine(float amplitude, float duration)
+        {
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                scriptedShake = Mathf.Lerp(amplitude, 0f, Mathf.Clamp01(elapsed / duration));
+                yield return null;
+            }
+            scriptedShake = 0f;
+        }
+
+        private void CacheThreatMaterials()
+        {
+            threatRenderers.Clear();
+            if (threatSilhouette == null)
+            {
+                return;
+            }
+            foreach (Renderer renderer in threatSilhouette.GetComponentsInChildren<Renderer>(true))
+            {
+                if (renderer == null)
+                {
+                    continue;
+                }
+                renderer.material = new Material(renderer.sharedMaterial);
+                threatRenderers.Add(renderer);
+            }
+        }
+
+        private void SetThreatAlpha(float alpha)
+        {
+            foreach (Renderer renderer in threatRenderers)
+            {
+                if (renderer == null || renderer.material == null)
+                {
+                    continue;
+                }
+                Material material = renderer.material;
+                if (material.HasProperty("_BaseColor"))
+                {
+                    Color color = material.GetColor("_BaseColor");
+                    color.a = Mathf.Clamp01(alpha);
+                    material.SetColor("_BaseColor", color);
+                }
+                if (material.HasProperty("_Color"))
+                {
+                    Color color = material.GetColor("_Color");
+                    color.a = Mathf.Clamp01(alpha);
+                    material.SetColor("_Color", color);
+                }
             }
         }
 
@@ -991,11 +1511,6 @@ namespace DoNotDraw.World
             }
         }
 
-        private bool GetBool(StoryFact fact)
-        {
-            return blackboard != null && fact != null && blackboard.GetValue(fact).BoolValue;
-        }
-
         private void SubscribeZone(NarrativeZoneTrigger zone)
         {
             if (zone != null)
@@ -1012,6 +1527,18 @@ namespace DoNotDraw.World
             }
         }
 
+        private static void SetLightEnabled(Light light, bool enabled)
+        {
+            if (light != null)
+            {
+                light.enabled = enabled;
+                foreach (Renderer renderer in light.GetComponentsInChildren<Renderer>(true))
+                {
+                    renderer.enabled = enabled;
+                }
+            }
+        }
+
         private static Vector3 HorizontalDirection(Vector3 value)
         {
             value.y = 0f;
@@ -1021,14 +1548,11 @@ namespace DoNotDraw.World
         private void OnValidate()
         {
             cueBindings ??= new List<ClosedRoomCueBinding>();
-            rearLookDot = Mathf.Clamp(rearLookDot, 0.5f, 0.999f);
-            focusedLookDot = Mathf.Clamp(focusedLookDot, 0.5f, 0.999f);
-            turnAroundAngle = Mathf.Clamp(turnAroundAngle, 20f, 170f);
+            flickerAmplitude = Mathf.Clamp(flickerAmplitude, 0f, 0.05f);
             threatApproachDuration = Mathf.Max(1f, threatApproachDuration);
-            blackoutChangeDelay = Mathf.Max(0f, blackoutChangeDelay);
-            blackoutPostChangeHold = Mathf.Max(0f, blackoutPostChangeHold);
-            endingHold = Mathf.Max(0f, endingHold);
-            endingFadeDuration = Mathf.Max(0.1f, endingFadeDuration);
+            focusedLookDot = Mathf.Clamp(focusedLookDot, 0.5f, 0.999f);
+            windowGazeDuration = Mathf.Max(0.1f, windowGazeDuration);
+            rearImpactAngle = Mathf.Clamp(rearImpactAngle, 90f, 179f);
         }
     }
 }

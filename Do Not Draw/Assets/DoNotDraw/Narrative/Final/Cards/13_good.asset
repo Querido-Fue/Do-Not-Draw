@@ -15,6 +15,7 @@ MonoBehaviour:
   stableId: final.card.good
   displayName: GOOD.
   faceText: GOOD.
+  faceTexture: {fileID: 0}
   faceAccentMaterial: {fileID: 2100000, guid: 9c1bc92ef35503245893d06d3fd174c0, type: 2}
   faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}
   drawSoundOverride: {fileID: 0}
@@ -22,6 +23,12 @@ MonoBehaviour:
   voiceClip: {fileID: 8300000, guid: 1d131be06544cd94cb4c65c4c292a55b, type: 3}
   voiceVolume: 0.82
   voiceDelay: 0.16
+  textFadeDuration: 0.28
+  typographyStage: 1
+  doubleExposureDuration: 0
+  liftOnReveal: 1
+  revealLiftHeight: 0.045
+  revealLiftDuration: 0.4
   tags:
   - final
   - flow-authority
