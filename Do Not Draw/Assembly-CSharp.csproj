@@ -56,6 +56,7 @@
     <Compile Include="Assets\DoNotDraw\Scripts\Narrative\CardDefinition.cs" />
     <Compile Include="Assets\DoNotDraw\Scripts\Narrative\StoryValue.cs" />
     <Compile Include="Assets\StarterAssets\Mobile\Scripts\VirtualInputs\UIVirtualTouchZone.cs" />
+    <Compile Include="Assets\DoNotDraw\Scripts\Title\VolumeManager.cs" />
     <Compile Include="Assets\DoNotDraw\Scripts\CardDeckInteraction.cs" />
     <Compile Include="Assets\DoNotDraw\Scripts\Title\TitleCameraMover.cs" />
     <Compile Include="Assets\StarterAssets\Mobile\Scripts\VirtualInputs\UIVirtualJoystick.cs" />
@@ -94,6 +95,7 @@
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF SSD.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Surface-Mobile.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF SpaceWarp.shader" />
+    <None Include="Assets\DoNotDraw\Shaders\WorldSpaceConcrete.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\SDFFunctions.hlsl" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Surface.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_Bitmap-Custom-Atlas.shader" />

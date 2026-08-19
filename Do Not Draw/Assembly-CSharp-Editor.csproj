@@ -53,9 +53,11 @@
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.5.8f1\Editor\Data\BCLExtensions\TargetingPacks\netstandard2.1\analyzers\dotnet\roslyn4.0\cs\System.Text.Json.SourceGeneration.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\DoNotDraw\Editor\Final\ClosedRoomContentMigration.cs" />
     <Compile Include="Assets\TutorialInfo\Scripts\Editor\ReadmeEditor.cs" />
     <Compile Include="Assets\DoNotDraw\Editor\Narrative\NarrativeFoundationEditor.cs" />
     <Compile Include="Assets\DoNotDraw\Editor\Final\FinalExperienceBuilder.cs" />
+    <Compile Include="Assets\DoNotDraw\Editor\Final\DetailedRoomSetFactory.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">
