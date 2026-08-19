@@ -89,6 +89,7 @@
     <Compile Include="Assets\DoNotDraw\Scripts\Interaction\InteractableOuterGlow.cs" />
     <Compile Include="Assets\DoNotDraw\Scripts\Narrative\CardSequenceRunner.cs" />
     <Compile Include="Assets\StarterAssets\InputSystem\StarterAssetsInputs.cs" />
+    <Compile Include="Assets\DoNotDraw\Scripts\Settings\DoNotDrawVolume.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />
