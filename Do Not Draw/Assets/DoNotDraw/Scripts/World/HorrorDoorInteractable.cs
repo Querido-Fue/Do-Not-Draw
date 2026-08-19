@@ -19,7 +19,10 @@ namespace DoNotDraw.World
         [SerializeField, Min(0.05f)] private float openDuration = 1.1f;
         [SerializeField, Min(0.05f)] private float slamDuration = 0.22f;
         [SerializeField] private AudioClip openSound;
+        [SerializeField] private AudioClip storyOpenSound;
         [SerializeField] private AudioClip slamSound;
+        [SerializeField] private AudioClip handleTurnSound;
+        [SerializeField] private AudioClip storyHandleTurnSound;
         [SerializeField, Range(0f, 1f)] private float volume = 0.75f;
 
         private AudioSource audioSource;
@@ -57,7 +60,8 @@ namespace DoNotDraw.World
             }
 
             interactionEnabled = false;
-            OpenByStory();
+            PlayHandleSound(handleTurnSound);
+            AnimateTo(openAngle, openDuration, openSound, true);
             PlayerOpened?.Invoke(this);
         }
 
@@ -79,9 +83,10 @@ namespace DoNotDraw.World
             isMoving = false;
         }
 
-        public void OpenByStory()
+        public void OpenByStory(bool playSound = true)
         {
-            AnimateTo(openAngle, openDuration, openSound, true);
+            AudioClip clip = storyOpenSound != null ? storyOpenSound : openSound;
+            AnimateTo(openAngle, openDuration, playSound ? clip : null, true);
         }
 
         public void OpenPartially()
@@ -104,10 +109,9 @@ namespace DoNotDraw.World
             Initialize();
             if (handle == null)
             {
-                if (audioSource != null && openSound != null)
-                {
-                    audioSource.PlayOneShot(openSound, volume * 0.65f);
-                }
+                PlayHandleSound(storyHandleTurnSound != null
+                    ? storyHandleTurnSound
+                    : handleTurnSound);
                 return;
             }
 
@@ -154,10 +158,9 @@ namespace DoNotDraw.World
 
         private IEnumerator TwistHandleRoutine(float duration, float angle)
         {
-            if (audioSource != null && openSound != null)
-            {
-                audioSource.PlayOneShot(openSound, volume * 0.7f);
-            }
+            PlayHandleSound(storyHandleTurnSound != null
+                ? storyHandleTurnSound
+                : handleTurnSound);
 
             Quaternion start = handle.localRotation;
             Quaternion target = handleRestRotation * Quaternion.Euler(0f, 0f, angle);
@@ -186,6 +189,14 @@ namespace DoNotDraw.World
 
             handle.localRotation = target;
             handleRoutine = null;
+        }
+
+        private void PlayHandleSound(AudioClip clip)
+        {
+            if (audioSource != null && clip != null)
+            {
+                audioSource.PlayOneShot(clip, volume * 0.7f);
+            }
         }
 
         private void Initialize()

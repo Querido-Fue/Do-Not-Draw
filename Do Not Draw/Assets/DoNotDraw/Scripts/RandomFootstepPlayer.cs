@@ -10,6 +10,7 @@ namespace DoNotDraw.Audio
     {
         [Header("Footsteps")]
         [SerializeField] private AudioClip[] footstepClips = System.Array.Empty<AudioClip>();
+        [SerializeField] private AudioClip[] alternateFootstepClips = System.Array.Empty<AudioClip>();
         [SerializeField, Min(0.1f)] private float stepDistance = 1.55f;
         [SerializeField, Min(0f)] private float minimumSpeed = 0.2f;
         [SerializeField, Range(0f, 1f)] private float volume = 0.55f;
@@ -21,6 +22,7 @@ namespace DoNotDraw.Audio
         private float distanceSinceLastStep;
         private int lastClipIndex = -1;
         private bool wasMoving;
+        private bool useAlternateFootsteps;
 
         private void Awake()
         {
@@ -70,18 +72,22 @@ namespace DoNotDraw.Audio
 
         private void PlayRandomFootstep()
         {
-            if (footstepClips == null || footstepClips.Length == 0)
+            AudioClip[] activeClips = useAlternateFootsteps
+                && alternateFootstepClips is { Length: > 0 }
+                    ? alternateFootstepClips
+                    : footstepClips;
+            if (activeClips == null || activeClips.Length == 0)
             {
                 return;
             }
 
-            int clipIndex = Random.Range(0, footstepClips.Length);
-            if (footstepClips.Length > 1 && clipIndex == lastClipIndex)
+            int clipIndex = Random.Range(0, activeClips.Length);
+            if (activeClips.Length > 1 && clipIndex == lastClipIndex)
             {
-                clipIndex = (clipIndex + Random.Range(1, footstepClips.Length)) % footstepClips.Length;
+                clipIndex = (clipIndex + Random.Range(1, activeClips.Length)) % activeClips.Length;
             }
 
-            AudioClip clip = footstepClips[clipIndex];
+            AudioClip clip = activeClips[clipIndex];
             if (clip == null)
             {
                 return;
@@ -90,6 +96,19 @@ namespace DoNotDraw.Audio
             lastClipIndex = clipIndex;
             audioSource.pitch = Random.Range(pitchRange.x, pitchRange.y);
             audioSource.PlayOneShot(clip, volume);
+        }
+
+        public void SetAlternateSurface(bool alternate)
+        {
+            if (useAlternateFootsteps == alternate)
+            {
+                return;
+            }
+
+            useAlternateFootsteps = alternate;
+            distanceSinceLastStep = 0f;
+            lastClipIndex = -1;
+            wasMoving = false;
         }
 
         private void ConfigureAudioSource()
@@ -113,6 +132,7 @@ namespace DoNotDraw.Audio
 
             if (audioSource != null)
             {
+                audioSource.Stop();
                 audioSource.pitch = 1f;
             }
         }

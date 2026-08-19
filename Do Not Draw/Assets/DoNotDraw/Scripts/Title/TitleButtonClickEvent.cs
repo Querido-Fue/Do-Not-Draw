@@ -56,7 +56,7 @@ public class TitleButtonClickEvent : MonoBehaviour
 
     void ShowSettingPopup()
     {
-        //TODO - 설정 팝업 띄우기
+        SettingPopupManager.Instance.enablePopup();
     }
 
     void ExitGame()

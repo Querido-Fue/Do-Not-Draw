@@ -16,6 +16,8 @@ namespace DoNotDraw.World
         [SerializeField] private float pressedAngle = -28f;
         [SerializeField, Min(0.05f)] private float animationDuration = 0.16f;
         [SerializeField] private AudioClip switchSound;
+        [SerializeField] private AudioClip switchOffSound;
+        [SerializeField] private AudioClip switchOnSound;
         [SerializeField, Range(0f, 1f)] private float volume = 0.7f;
         [SerializeField] private bool startsOn = true;
 
@@ -53,10 +55,12 @@ namespace DoNotDraw.World
 
             interactionEnabled = false;
             isOn = !isOn;
-            if (audioSource != null && switchSound != null)
+            AudioClip stateSound = isOn ? switchOnSound : switchOffSound;
+            stateSound ??= switchSound;
+            if (audioSource != null && stateSound != null)
             {
-                audioSource.pitch = isOn ? 1.08f : 0.9f;
-                audioSource.PlayOneShot(switchSound, volume);
+                audioSource.pitch = 1f;
+                audioSource.PlayOneShot(stateSound, volume);
             }
 
             if (animationRoutine != null)

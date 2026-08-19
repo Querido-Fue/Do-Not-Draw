@@ -144,8 +144,6 @@ namespace DoNotDraw.Narrative.Editor
                 fluorescentEmitter,
                 22f);
 
-            BuildChair("First Room Empty Chair", refs.FirstRoomSet.transform, new Vector3(0f, 0f, 1.15f), wood, false);
-            BuildChair("Second Room Reversed Chair", refs.SecondRoomSet.transform, new Vector3(0f, 0f, SecondRoomCenterZ + 1.15f), wood, true);
             refs.FirstClockHand = BuildClock(
                 "First Grandfather Clock",
                 refs.FirstRoomSet.transform,
@@ -292,8 +290,8 @@ namespace DoNotDraw.Narrative.Editor
             refs.PlayerStartMarker = CreateMarker(
                 refs.FirstRoomSet.transform,
                 "Exact Opening Camera Start",
-                new Vector3(0f, 0.08f, -1.62f),
-                Quaternion.identity);
+                new Vector3(0f, 0.08f, 1.62f),
+                Quaternion.Euler(0f, 180f, 0f));
             Vector3 secondSpawn = new Vector3(SecondDoorX, 0.08f, SecondRoomCenterZ - 1.74f);
             Vector3 towardTable = new Vector3(-SecondDoorX, 0f, 1.74f).normalized;
             refs.SecondRoomPlayerMarker = CreateMarker(
@@ -519,7 +517,7 @@ namespace DoNotDraw.Narrative.Editor
                 cover = CreateCube(
                     "Second Door Concealing Wallpaper Wall",
                     parent,
-                    new Vector3(SecondDoorX, DoorHeight * 0.5f, wallZ - 0.19f),
+                    new Vector3(SecondDoorX, DoorHeight * 0.5f, wallZ - 0.05f),
                     new Vector3(DoorWidth + 0.04f, DoorHeight, 0.08f),
                     wall,
                     false);
@@ -570,6 +568,20 @@ namespace DoNotDraw.Narrative.Editor
                 new Vector3(width * 0.35f, 0f, -0.16f),
                 Quaternion.identity,
                 true);
+            if (!openTowardFirstRoom)
+            {
+                GameObject escapeGuard = CreateCube(
+                    "Story Exit Escape Guard",
+                    pivot.transform,
+                    new Vector3(width * 0.455f, 1.433f, 0.407f),
+                    new Vector3(width + 0.2f, 0.1f, 0.1f),
+                    null);
+                Renderer escapeGuardRenderer = escapeGuard.GetComponent<Renderer>();
+                if (escapeGuardRenderer != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(escapeGuardRenderer);
+                }
+            }
             AudioSource source = pivot.AddComponent<AudioSource>();
             source.playOnAwake = false;
             source.spatialBlend = 1f;
@@ -609,10 +621,11 @@ namespace DoNotDraw.Narrative.Editor
             GameObject root = new GameObject(name);
             root.transform.SetParent(parent, false);
             root.transform.position = position;
-            CreateCube("Black Glass", root.transform, Vector3.zero, new Vector3(DoorWidth, 1.38f, 0.035f), windowMaterial, false);
+            CreateCube("Black Glass", root.transform, Vector3.zero, new Vector3(DoorWidth, 1.42f, 0.035f), windowMaterial, false);
             CreateCube("Frame Left", root.transform, new Vector3(-DoorWidth * 0.53f, 0f, -0.02f), new Vector3(0.075f, 1.55f, 0.08f), curtainMaterial, false);
             CreateCube("Frame Right", root.transform, new Vector3(DoorWidth * 0.53f, 0f, -0.02f), new Vector3(0.075f, 1.55f, 0.08f), curtainMaterial, false);
             CreateCube("Frame Top", root.transform, new Vector3(0f, 0.74f, -0.02f), new Vector3(0.98f, 0.075f, 0.08f), curtainMaterial, false);
+            CreateCube("Frame Bottom", root.transform, new Vector3(0f, -0.74f, -0.02f), new Vector3(0.98f, 0.075f, 0.08f), curtainMaterial, false);
             CreateCube("Curtain Left", root.transform, new Vector3(-0.33f, 0.08f, -0.08f), new Vector3(0.18f, 1.42f, 0.05f), curtainMaterial, false);
             CreateCube("Curtain Right Half", root.transform, new Vector3(0.36f, 0.3f, -0.08f), new Vector3(0.13f, 0.96f, 0.05f), curtainMaterial, false);
             target = CreateMarker(root.transform, "Window Gaze Target", Vector3.zero, Quaternion.identity, true);
@@ -691,24 +704,6 @@ namespace DoNotDraw.Narrative.Editor
             }
         }
 
-        private static void BuildChair(string name, Transform parent, Vector3 position, Material material, bool reversed)
-        {
-            GameObject root = new GameObject(name);
-            root.transform.SetParent(parent, false);
-            root.transform.position = position;
-            root.transform.rotation = Quaternion.Euler(0f, reversed ? 180f : 0f, 0f);
-            CreateCube("Seat", root.transform, new Vector3(0f, 0.46f, 0f), new Vector3(0.48f, 0.08f, 0.48f), material);
-            CreateCube("Back", root.transform, new Vector3(0f, 0.9f, 0.2f), new Vector3(0.48f, 0.82f, 0.08f), material);
-            foreach (Vector3 leg in new[]
-                     {
-                         new Vector3(-0.19f, 0.22f, -0.18f), new Vector3(0.19f, 0.22f, -0.18f),
-                         new Vector3(-0.19f, 0.22f, 0.18f), new Vector3(0.19f, 0.22f, 0.18f)
-                     })
-            {
-                CreateCube("Chair Leg", root.transform, leg, new Vector3(0.055f, 0.44f, 0.055f), material);
-            }
-        }
-
         private static Transform BuildClock(string name, Transform parent, Vector3 position, Material wood, Material metal)
         {
             GameObject root = new GameObject(name);
@@ -731,7 +726,6 @@ namespace DoNotDraw.Narrative.Editor
             root.transform.position = position;
             CreateCube("Echo Table", root.transform, new Vector3(0f, -0.12f, 0f), new Vector3(0.54f, 0.08f, 0.015f), material, false);
             CreateCube("Echo Lamp", root.transform, new Vector3(0.18f, 0.12f, 0f), new Vector3(0.04f, 0.42f, 0.015f), material, false);
-            CreateCube("Echo Chair", root.transform, new Vector3(-0.15f, -0.38f, 0f), new Vector3(0.28f, 0.4f, 0.015f), material, false);
             CreateCube("Echo Door", root.transform, new Vector3(0.29f, 0.3f, 0f), new Vector3(0.22f, 0.66f, 0.015f), material, false);
             return root;
         }
@@ -941,7 +935,7 @@ namespace DoNotDraw.Narrative.Editor
 
         private static Transform BuildShadowCaster(Transform parent, Vector3 position, Material material)
         {
-            GameObject root = new GameObject("Unnatural Chair Shadow Caster");
+            GameObject root = new GameObject("Unnatural Shadow Caster");
             root.transform.SetParent(parent, false);
             root.transform.position = position;
             CreateCube("Impossible Shadow", root.transform, Vector3.zero, new Vector3(0.46f, 0.015f, 1.15f), material, false);
