@@ -8805,19 +8805,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 909530090}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1277682783762665177}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 1
-        m_CallState: 2
+      m_Calls: []
 --- !u!114 &909530090
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -11077,6 +11065,11 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1104720557}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1107224028 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1108636637743912930, guid: 56841a7053ddb5e46bd243a7ca69c718, type: 3}
+  m_PrefabInstance: {fileID: 1618794714}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1113492379
 GameObject:
   m_ObjectHideFlags: 0
@@ -14075,6 +14068,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1311807562}
   - component: {fileID: 1311807561}
+  - component: {fileID: 1311807563}
   m_Layer: 0
   m_Name: First Room Fluorescent Ceiling Rig
   m_TagString: Untagged
@@ -14162,6 +14156,35 @@ Transform:
   m_Children: []
   m_Father: {fileID: 106714556}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1311807563
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1311807560}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalLightData
+  m_UsePipelineSettings: 1
+  m_AdditionalLightsShadowResolutionTier: 2
+  m_CustomShadowLayers: 0
+  m_LightCookieSize: {x: 1, y: 1}
+  m_LightCookieOffset: {x: 0, y: 0}
+  m_SoftShadowQuality: 0
+  m_RenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_ShadowRenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_Version: 4
+  m_LightLayerMask: 1
+  m_ShadowLayerMask: 1
+  m_RenderingLayers: 1
+  m_ShadowRenderingLayers: 1
 --- !u!1 &1313296940
 GameObject:
   m_ObjectHideFlags: 0
@@ -18289,6 +18312,38 @@ PrefabInstance:
       propertyPath: m_AnchorMax.y
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 6938585599025541989, guid: 56841a7053ddb5e46bd243a7ca69c718, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6938585599025541989, guid: 56841a7053ddb5e46bd243a7ca69c718, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 6938585599025541989, guid: 56841a7053ddb5e46bd243a7ca69c718, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1277682783762665177}
+    - target: {fileID: 6938585599025541989, guid: 56841a7053ddb5e46bd243a7ca69c718, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6938585599025541989, guid: 56841a7053ddb5e46bd243a7ca69c718, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: SetActive
+      objectReference: {fileID: 0}
+    - target: {fileID: 6938585599025541989, guid: 56841a7053ddb5e46bd243a7ca69c718, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: UnityEngine.GameObject, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 6938585599025541989, guid: 56841a7053ddb5e46bd243a7ca69c718, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_BoolArgument
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6938585599025541989, guid: 56841a7053ddb5e46bd243a7ca69c718, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
     - target: {fileID: 7390141442950991239, guid: 56841a7053ddb5e46bd243a7ca69c718, type: 3}
       propertyPath: m_Name
       value: Settings Popup Runtime
@@ -18371,10 +18426,10 @@ Canvas:
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
   m_UseReflectionProbes: 0
-  m_AdditionalShaderChannelsFlag: 0
+  m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 1000
+  m_SortingOrder: 987
   m_TargetDisplay: 0
 --- !u!1 &1620401530
 GameObject:
@@ -21520,6 +21575,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1902416086}
   - component: {fileID: 1902416085}
+  - component: {fileID: 1902416087}
   m_Layer: 0
   m_Name: Second Room Fluorescent Ceiling Rig
   m_TagString: Untagged
@@ -21607,6 +21663,35 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1319671966}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1902416087
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1902416084}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalLightData
+  m_UsePipelineSettings: 1
+  m_AdditionalLightsShadowResolutionTier: 2
+  m_CustomShadowLayers: 0
+  m_LightCookieSize: {x: 1, y: 1}
+  m_LightCookieOffset: {x: 0, y: 0}
+  m_SoftShadowQuality: 0
+  m_RenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_ShadowRenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_Version: 4
+  m_LightLayerMask: 1
+  m_ShadowLayerMask: 1
+  m_RenderingLayers: 1
+  m_ShadowRenderingLayers: 1
 --- !u!1 &1915087366
 GameObject:
   m_ObjectHideFlags: 0
@@ -24169,6 +24254,7 @@ MonoBehaviour:
   pauseWhileOpen: 0
   hideWhileOpen:
   - {fileID: 1620401530}
+  - {fileID: 1107224028}
 --- !u!114 &1045403860114047588
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -25193,7 +25279,7 @@ Canvas:
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 999
+  m_SortingOrder: 2944
   m_TargetDisplay: 0
 --- !u!114 &5379771142012293030
 MonoBehaviour:
@@ -25798,7 +25884,7 @@ RectTransform:
   m_Father: {fileID: 1878493235808419229}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 10, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -25817,7 +25903,7 @@ RectTransform:
   m_Father: {fileID: 3370532444271609252}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 90, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -26278,8 +26364,8 @@ SceneRoots:
   - {fileID: 726065126}
   - {fileID: 1817046241}
   - {fileID: 1049513875}
+  - {fileID: 1618794714}
   - {fileID: 8882198831981663893}
   - {fileID: 1463631510}
   - {fileID: 1782434972}
   - {fileID: 1868802145}
-  - {fileID: 1618794714}
