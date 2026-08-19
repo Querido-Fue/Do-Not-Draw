@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using DoNotDraw.Audio;
 using DoNotDraw.Interaction;
 using DoNotDraw.World;
 using UnityEditor;
@@ -36,6 +37,34 @@ namespace DoNotDraw.Narrative.Editor
             public readonly Dictionary<string, StoryFact> Facts = new Dictionary<string, StoryFact>();
             public readonly Dictionary<string, StorySignal> Signals = new Dictionary<string, StorySignal>();
             public CardSequenceDefinition Sequence;
+        }
+
+        private sealed class FinalAudioClips
+        {
+            public AudioClip FluorescentBuzz;
+            public AudioClip ClockLoop;
+            public AudioClip ClockDesynced;
+            public AudioClip LowDrone;
+            public AudioClip LowStinger;
+            public AudioClip WhiteNoise;
+            public AudioClip BreathTexture;
+            public AudioClip DeckHover;
+            public AudioClip ImpactThud;
+            public AudioClip CardDraw;
+            public AudioClip CardLanding;
+            public AudioClip FirstRoomFootstep;
+            public AudioClip SecondRoomFootstep;
+            public AudioClip FootstepsBehind;
+            public AudioClip SwitchOff;
+            public AudioClip SwitchOn;
+            public AudioClip DoorHandle;
+            public AudioClip DoorCreak;
+            public AudioClip StoryDoorCreak;
+            public AudioClip DoorSlam;
+            public AudioClip Wind;
+            public AudioClip SilhouetteApproach;
+            public AudioClip StoryHandle;
+            public AudioClip FluorescentStarter;
         }
 
         private sealed class CardSpec
@@ -858,6 +887,47 @@ namespace DoNotDraw.Narrative.Editor
             }
         }
 
+        private static FinalAudioClips LoadFinalAudioClips()
+        {
+            return new FinalAudioClips
+            {
+                FluorescentBuzz = LoadRequiredAudioClip("Assets/Sounds/01_fluorescent_buzz_loop.wav"),
+                ClockLoop = LoadRequiredAudioClip("Assets/Sounds/02_clock_tick_loop.wav"),
+                ClockDesynced = LoadRequiredAudioClip("Assets/Sounds/03_clock_tick_desynced.wav"),
+                LowDrone = LoadRequiredAudioClip("Assets/Sounds/04_low_drone_40_60hz_loop.wav"),
+                LowStinger = LoadRequiredAudioClip("Assets/Sounds/06_low_stinger.wav"),
+                WhiteNoise = LoadRequiredAudioClip("Assets/Sounds/07_white_noise_window_swell.wav"),
+                BreathTexture = LoadRequiredAudioClip("Assets/Sounds/08_low_breath_texture_loop.wav"),
+                DeckHover = LoadRequiredAudioClip("Assets/Sounds/09_deck_hover_fixed_drone.wav"),
+                ImpactThud = LoadRequiredAudioClip("Assets/Sounds/10_impact_thud.wav"),
+                CardDraw = LoadRequiredAudioClip("Assets/Sounds/11_card_draw_paper.wav"),
+                CardLanding = LoadRequiredAudioClip("Assets/Sounds/Card/Card_Game_Movement_Tap_03.wav"),
+                FirstRoomFootstep = LoadRequiredAudioClip("Assets/Sounds/12_carpet_footstep_single.wav"),
+                SecondRoomFootstep = LoadRequiredAudioClip("Assets/Sounds/12b_carpet_footstep_room2_pitched.wav"),
+                FootstepsBehind = LoadRequiredAudioClip("Assets/Sounds/13_footsteps_behind_4steps_carpet.wav"),
+                SwitchOff = LoadRequiredAudioClip("Assets/Sounds/14a_switch_click_off_low.wav"),
+                SwitchOn = LoadRequiredAudioClip("Assets/Sounds/14b_switch_click_on_high.wav"),
+                DoorHandle = LoadRequiredAudioClip("Assets/Sounds/15_door_handle_turn.wav"),
+                DoorCreak = LoadRequiredAudioClip("Assets/Sounds/16a_hinge_creak_door1.wav"),
+                StoryDoorCreak = LoadRequiredAudioClip("Assets/Sounds/16b_hinge_creak_door1_selfopen_lowpitch.wav"),
+                DoorSlam = LoadRequiredAudioClip("Assets/Sounds/Horror/DoorSlam.wav"),
+                Wind = LoadRequiredAudioClip("Assets/Sounds/17_faint_wind_loop.wav"),
+                SilhouetteApproach = LoadRequiredAudioClip("Assets/Sounds/18_silhouette_approach_loop.wav"),
+                StoryHandle = LoadRequiredAudioClip("Assets/Sounds/19_door_handle_selfturning_crescendo.wav"),
+                FluorescentStarter = LoadRequiredAudioClip("Assets/Sounds/20_fluorescent_starter_tick.wav")
+            };
+        }
+
+        private static AudioClip LoadRequiredAudioClip(string path)
+        {
+            AudioClip clip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
+            if (clip == null)
+            {
+                throw new InvalidOperationException($"[Final Experience] Required audio clip was not found: {path}");
+            }
+            return clip;
+        }
+
         private static void BuildScene(Scene scene, NarrativeAssets assets)
         {
             GameObject oldRoot = FindSceneObject(scene, FinalRootName);
@@ -877,6 +947,7 @@ namespace DoNotDraw.Narrative.Editor
             {
                 throw new InvalidOperationException("[Final Experience] Required ClosedRoom scene objects were not found.");
             }
+            FinalAudioClips audio = LoadFinalAudioClips();
 
             FindSceneObject(scene, "Room Shell")?.SetActive(false);
             FindSceneObject(scene, "North Wall")?.SetActive(false);
@@ -979,15 +1050,6 @@ namespace DoNotDraw.Narrative.Editor
                 true);
             Material interactionGlow = GetOrCreateInteractionGlowMaterial();
 
-            AudioClip switchClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Horror/LightSwitch.wav");
-            AudioClip doorCreak = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Horror/DoorCreak.wav");
-            AudioClip doorSlam = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Horror/DoorSlam.wav");
-            AudioClip rearWarning = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Horror/RearWarning.wav");
-            AudioClip breathing = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Horror/ThreatBreathing.wav");
-            AudioClip drone = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Horror/ThreatDrone.wav");
-            AudioClip cardTap = AssetDatabase.LoadAssetAtPath<AudioClip>(
-                "Assets/Sounds/Card/Card_Game_Movement_Tap_03.wav");
-
             DetailedRoomSetRefs room = DetailedRoomSetFactory.Build(
                 root.transform,
                 originalDesk,
@@ -1007,8 +1069,8 @@ namespace DoNotDraw.Narrative.Editor
                 silhouetteMaterial,
                 windowVisionMaterial,
                 whiteLightMaterial,
-                doorCreak,
-                doorSlam);
+                audio.DoorCreak,
+                audio.DoorSlam);
             ConfigureInteractionGlow(room.SecondDoor, interactionGlow);
 
             CardSequenceRunner runner = primaryDeckObject.GetComponent<CardSequenceRunner>();
@@ -1017,6 +1079,8 @@ namespace DoNotDraw.Narrative.Editor
             CardDeckInteraction primaryInteraction = primaryDeckObject.GetComponent<CardDeckInteraction>();
             primaryPresenter.SetVoiceNarrationEnabled(false);
             room.SecondPresenter.SetVoiceNarrationEnabled(false);
+            ConfigurePresenterAudio(primaryPresenter, audio.CardDraw, audio.CardLanding);
+            ConfigurePresenterAudio(room.SecondPresenter, audio.CardDraw, audio.CardLanding);
             EditorUtility.SetDirty(primaryPresenter);
             EditorUtility.SetDirty(room.SecondPresenter);
             ConfigureDeckInteraction(primaryDeckObject, primaryInteraction, runner, true);
@@ -1050,14 +1114,20 @@ namespace DoNotDraw.Narrative.Editor
             Set(routerSerialized, "promptPanel", promptPanel);
             Set(routerSerialized, "promptText", promptText);
             routerSerialized.ApplyModifiedPropertiesWithoutUndo();
+            if (promptText != null)
+            {
+                promptText.fontSize = 24;
+                EditorUtility.SetDirty(promptText);
+            }
 
-            ConfigureDoor(room.SecondDoor, doorCreak, doorSlam);
-            ConfigureDoor(room.StoryDoor, doorCreak, doorSlam);
+            ConfigureDoor(room.SecondDoor, audio);
+            ConfigureDoor(room.StoryDoor, audio);
             HorrorLightSwitchInteractable lightSwitch = BuildLightSwitch(
                 root.transform,
                 originalDesk.transform,
                 switchMetal,
-                switchClip);
+                audio.SwitchOff,
+                audio.SwitchOn);
             ConfigureInteractionGlow(lightSwitch, interactionGlow);
             CanvasGroup screenFade = BuildScreenFade(root.transform);
 
@@ -1073,7 +1143,10 @@ namespace DoNotDraw.Narrative.Editor
             Behaviour movement = player.GetComponentsInChildren<Behaviour>(true)
                 .FirstOrDefault(component => component.GetType().Name == "FirstPersonController");
             ConfigurePlayerMovement(movement);
+            ConfigurePlayerFootsteps(player, audio.FirstRoomFootstep, audio.SecondRoomFootstep);
             AudioSource ambience = atmosphereObject != null ? atmosphereObject.GetComponent<AudioSource>() : null;
+            ConfigureLoopSource(ambience, audio.FluorescentBuzz, 0.2f);
+            clockSource.volume = 0.18f;
 
             ConfigureDetailedDirector(
                 director,
@@ -1095,12 +1168,7 @@ namespace DoNotDraw.Narrative.Editor
                 transitionSource,
                 windSource,
                 oneShotSource,
-                switchClip,
-                rearWarning,
-                breathing,
-                drone,
-                cardTap,
-                doorCreak);
+                audio);
         }
 
         private static void BuildFirstRoomDoorWall(Transform parent, Material wall, Material doorMaterial)
@@ -1238,11 +1306,61 @@ namespace DoNotDraw.Narrative.Editor
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        private static void ConfigurePresenterAudio(
+            CardDeckPresenter presenter,
+            AudioClip drawClip,
+            AudioClip landingClip)
+        {
+            SerializedObject serialized = new SerializedObject(presenter);
+            Set(serialized, "drawSound", drawClip);
+            Set(serialized, "landingSound", landingClip);
+            Set(serialized, "drawVolume", 0.48f);
+            Set(serialized, "landingVolume", 0.24f);
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void ConfigurePlayerFootsteps(
+            GameObject player,
+            AudioClip firstRoomClip,
+            AudioClip secondRoomClip)
+        {
+            RandomFootstepPlayer footsteps = player.GetComponentInChildren<RandomFootstepPlayer>(true);
+            if (footsteps == null)
+            {
+                footsteps = player.AddComponent<RandomFootstepPlayer>();
+            }
+
+            SerializedObject serialized = new SerializedObject(footsteps);
+            SetObjectArray(serialized.FindProperty("footstepClips"), firstRoomClip);
+            SetObjectArray(serialized.FindProperty("alternateFootstepClips"), secondRoomClip);
+            Set(serialized, "stepDistance", 1.55f);
+            Set(serialized, "volume", 0.5f);
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(footsteps);
+        }
+
+        private static void ConfigureLoopSource(AudioSource source, AudioClip clip, float volume)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            source.Stop();
+            source.clip = clip;
+            source.loop = true;
+            source.playOnAwake = false;
+            source.spatialBlend = 0f;
+            source.volume = Mathf.Clamp01(volume);
+            EditorUtility.SetDirty(source);
+        }
+
         private static HorrorLightSwitchInteractable BuildLightSwitch(
             Transform parent,
             Transform desk,
             Material material,
-            AudioClip clip)
+            AudioClip switchOffClip,
+            AudioClip switchOnClip)
         {
             Transform desktop = FindChildRecursive(desk, "Desktop");
             MeshFilter desktopMesh = desktop != null ? desktop.GetComponent<MeshFilter>() : null;
@@ -1308,7 +1426,9 @@ namespace DoNotDraw.Narrative.Editor
             Set(serialized, "lever", lever.transform);
             Set(serialized, "interactionPoint", point);
             Set(serialized, "interactionEnabled", false);
-            Set(serialized, "switchSound", clip);
+            Set(serialized, "switchSound", (AudioClip)null);
+            Set(serialized, "switchOffSound", switchOffClip);
+            Set(serialized, "switchOnSound", switchOnClip);
             serialized.ApplyModifiedPropertiesWithoutUndo();
             return interactable;
         }
@@ -1347,12 +1467,14 @@ namespace DoNotDraw.Narrative.Editor
 
         private static void ConfigureDoor(
             HorrorDoorInteractable door,
-            AudioClip openClip,
-            AudioClip slamClip)
+            FinalAudioClips audio)
         {
             SerializedObject serialized = new SerializedObject(door);
-            Set(serialized, "openSound", openClip);
-            Set(serialized, "slamSound", slamClip);
+            Set(serialized, "openSound", audio.DoorCreak);
+            Set(serialized, "storyOpenSound", audio.StoryDoorCreak);
+            Set(serialized, "slamSound", audio.DoorSlam);
+            Set(serialized, "handleTurnSound", audio.DoorHandle);
+            Set(serialized, "storyHandleTurnSound", audio.StoryHandle);
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -1503,12 +1625,7 @@ namespace DoNotDraw.Narrative.Editor
             AudioSource transitionSource,
             AudioSource windSource,
             AudioSource oneShotSource,
-            AudioClip fluorescentPower,
-            AudioClip rearImpact,
-            AudioClip breathing,
-            AudioClip drone,
-            AudioClip cardTap,
-            AudioClip floorCreak)
+            FinalAudioClips audio)
         {
             SerializedObject serialized = new SerializedObject(director);
             Set(serialized, "runner", runner);
@@ -1560,15 +1677,20 @@ namespace DoNotDraw.Narrative.Editor
             Set(serialized, "transitionSource", transitionSource);
             Set(serialized, "windSource", windSource);
             Set(serialized, "oneShotSource", oneShotSource);
-            Set(serialized, "fluorescentPowerClip", fluorescentPower);
-            Set(serialized, "clockTickClip", cardTap);
-            Set(serialized, "floorCreakClip", floorCreak);
-            Set(serialized, "rearImpactClip", rearImpact);
-            Set(serialized, "threatBreathingClip", breathing);
-            Set(serialized, "threatDroneClip", drone);
-            Set(serialized, "whiteNoiseClip", drone);
-            Set(serialized, "windClip", breathing);
-            Set(serialized, "lampTickClip", fluorescentPower);
+            Set(serialized, "fluorescentPowerClip", audio.FluorescentStarter);
+            Set(serialized, "clockLoopClip", audio.ClockLoop);
+            Set(serialized, "clockTickClip", audio.ClockDesynced);
+            Set(serialized, "floorCreakClip", audio.FirstRoomFootstep);
+            Set(serialized, "footstepsBehindClip", audio.FootstepsBehind);
+            Set(serialized, "rearImpactClip", audio.ImpactThud);
+            Set(serialized, "lowStingerClip", audio.LowStinger);
+            Set(serialized, "threatBreathingClip", audio.BreathTexture);
+            Set(serialized, "threatDroneClip", audio.LowDrone);
+            Set(serialized, "deckHoverClip", audio.DeckHover);
+            Set(serialized, "threatApproachClip", audio.SilhouetteApproach);
+            Set(serialized, "whiteNoiseClip", audio.WhiteNoise);
+            Set(serialized, "windClip", audio.Wind);
+            Set(serialized, "lampTickClip", audio.FluorescentStarter);
 
             Dictionary<string, StoryFact> facts = assets.Facts;
             Set(serialized, "lightSwitchUsedFact", facts["light_switch_used"]);
@@ -2195,6 +2317,22 @@ namespace DoNotDraw.Narrative.Editor
             if (property != null)
             {
                 property.objectReferenceValue = value;
+            }
+        }
+
+        private static void SetObjectArray(
+            SerializedProperty property,
+            params UnityEngine.Object[] values)
+        {
+            if (property == null)
+            {
+                return;
+            }
+
+            property.arraySize = values?.Length ?? 0;
+            for (int index = 0; index < property.arraySize; index++)
+            {
+                property.GetArrayElementAtIndex(index).objectReferenceValue = values[index];
             }
         }
 

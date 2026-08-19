@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using DoNotDraw.Audio;
 using DoNotDraw.Interaction;
 using DoNotDraw.Narrative;
 using UnityEngine;
@@ -47,6 +48,9 @@ namespace DoNotDraw.World
     [DisallowMultipleComponent]
     public sealed class ClosedRoomStoryDirector : MonoBehaviour
     {
+        private const float EndingDurationSeconds = 5f;
+        private const float EndingFadeSeconds = 1f;
+
         [Header("Narrative")]
         [SerializeField] private CardSequenceRunner runner;
         [SerializeField] private StoryBlackboard blackboard;
@@ -123,11 +127,16 @@ namespace DoNotDraw.World
 
         [Header("Audio Clips")]
         [SerializeField] private AudioClip fluorescentPowerClip;
+        [SerializeField] private AudioClip clockLoopClip;
         [SerializeField] private AudioClip clockTickClip;
         [SerializeField] private AudioClip floorCreakClip;
+        [SerializeField] private AudioClip footstepsBehindClip;
         [SerializeField] private AudioClip rearImpactClip;
+        [SerializeField] private AudioClip lowStingerClip;
         [SerializeField] private AudioClip threatBreathingClip;
         [SerializeField] private AudioClip threatDroneClip;
+        [SerializeField] private AudioClip deckHoverClip;
+        [SerializeField] private AudioClip threatApproachClip;
         [SerializeField] private AudioClip whiteNoiseClip;
         [SerializeField] private AudioClip windClip;
         [SerializeField] private AudioClip lampTickClip;
@@ -147,6 +156,7 @@ namespace DoNotDraw.World
             new List<(StorySignal signal, Action<StorySignalContext> handler)>();
         private readonly List<Renderer> threatRenderers = new List<Renderer>();
 
+        private RandomFootstepPlayer playerFootsteps;
         private float initialLampIntensity;
         private float initialSecondLampIntensity;
         private float primaryLightBase;
@@ -210,6 +220,9 @@ namespace DoNotDraw.World
             {
                 playerView = playerCamera.transform;
             }
+            playerFootsteps = playerRoot != null
+                ? playerRoot.GetComponentInChildren<RandomFootstepPlayer>(true)
+                : FindAnyObjectByType<RandomFootstepPlayer>(FindObjectsInactive.Include);
 
             initialLampIntensity = lampLight != null ? lampLight.intensity : 1f;
             initialSecondLampIntensity = secondRoomLampLight != null
@@ -233,6 +246,7 @@ namespace DoNotDraw.World
             shadowInitialRotation = shadowCaster != null ? shadowCaster.localRotation : Quaternion.identity;
 
             CacheThreatMaterials();
+            playerFootsteps?.SetAlternateSurface(false);
             ResetSceneState();
         }
 
@@ -502,6 +516,7 @@ namespace DoNotDraw.World
                     ambientSource.Play();
                 }
             }
+            StartClockLoop();
             PlayOneShot(fluorescentPowerClip, 0.55f);
             primaryInteraction?.SetInteractionEnabled(true);
             yield return null;
@@ -596,6 +611,7 @@ namespace DoNotDraw.World
                 {
                     ambientSource.volume = 0f;
                 }
+                clockSource?.Stop();
                 source.SetInteractionEnabled(false);
                 StartCoroutine(ReenableSwitchAfterDarkHold(source));
                 return;
@@ -645,7 +661,8 @@ namespace DoNotDraw.World
                     ambientSource.Play();
                 }
             }
-            PlayOneShot(rearImpactClip, 0.18f);
+            StartClockLoop();
+            PlayOneShot(lowStingerClip != null ? lowStingerClip : rearImpactClip, 0.18f);
         }
 
         private void RevealSecondDoor()
@@ -703,6 +720,7 @@ namespace DoNotDraw.World
                 return;
             }
             inSecondRoom = true;
+            playerFootsteps?.SetAlternateSurface(true);
             enterRuleRevealCount = 0;
             primaryInteraction?.SetInteractionEnabled(false);
             secondRoomInteraction?.SetInteractionEnabled(true);
@@ -720,6 +738,7 @@ namespace DoNotDraw.World
                 return;
             }
             inSecondRoom = false;
+            playerFootsteps?.SetAlternateSurface(false);
             secondRoomInteraction?.SetInteractionEnabled(false);
             primaryInteraction?.SetInteractionEnabled(true);
             SwitchPresenterForCurrentRoom(true);
@@ -805,6 +824,7 @@ namespace DoNotDraw.World
                     ambientSource.Play();
                 }
             }
+            StartClockLoop();
         }
 
         private void ArmWindowVision()
@@ -926,10 +946,13 @@ namespace DoNotDraw.World
                 threatStart.rotation);
             SetThreatAlpha(1f);
             SetLightEnabled(silhouetteBacklight, true);
-            if (threatSource != null && threatBreathingClip != null)
+            AudioClip approachClip = threatApproachClip != null
+                ? threatApproachClip
+                : threatBreathingClip;
+            if (threatSource != null && approachClip != null)
             {
                 threatSource.transform.position = threatSilhouette.position;
-                threatSource.clip = threatBreathingClip;
+                threatSource.clip = approachClip;
                 threatSource.loop = true;
                 threatSource.spatialBlend = 1f;
                 threatSource.volume = close ? 0.31f : 0.14f;
@@ -950,7 +973,7 @@ namespace DoNotDraw.World
                 huntHovering = hovered;
                 if (hovered)
                 {
-                    PlayOneShot(threatDroneClip, 0.12f);
+                    PlayOneShot(deckHoverClip != null ? deckHoverClip : threatDroneClip, 0.12f);
                 }
             }
             if (!huntHovering)
@@ -1063,18 +1086,31 @@ namespace DoNotDraw.World
 
         private IEnumerator TurnTestRoutine()
         {
-            for (int step = 0; step < 4; step++)
+            if (rearSource != null && footstepsBehindClip != null)
             {
-                if (rearSource != null && floorCreakClip != null)
+                rearSource.transform.position = playerRoot != null
+                    ? playerRoot.position - playerRoot.forward * 1.8f
+                    : transform.position;
+                rearSource.spatialBlend = 1f;
+                rearSource.volume = 0.48f;
+                rearSource.PlayOneShot(footstepsBehindClip, 0.55f);
+                yield return new WaitForSecondsRealtime(Mathf.Max(2.48f, footstepsBehindClip.length));
+            }
+            else
+            {
+                for (int step = 0; step < 4; step++)
                 {
-                    rearSource.transform.position = playerRoot != null
-                        ? playerRoot.position - playerRoot.forward * (2.2f - step * 0.35f)
-                        : transform.position;
-                    rearSource.spatialBlend = 1f;
-                    rearSource.volume = 0.36f + step * 0.04f;
-                    rearSource.PlayOneShot(floorCreakClip, 0.5f);
+                    if (rearSource != null && floorCreakClip != null)
+                    {
+                        rearSource.transform.position = playerRoot != null
+                            ? playerRoot.position - playerRoot.forward * (2.2f - step * 0.35f)
+                            : transform.position;
+                        rearSource.spatialBlend = 1f;
+                        rearSource.volume = 0.36f + step * 0.04f;
+                        rearSource.PlayOneShot(floorCreakClip, 0.5f);
+                    }
+                    yield return new WaitForSecondsRealtime(0.62f);
                 }
-                yield return new WaitForSecondsRealtime(0.62f);
             }
             yield return new WaitForSecondsRealtime(3f);
             turnTestActive = false;
@@ -1138,7 +1174,7 @@ namespace DoNotDraw.World
         private void OpenExit()
         {
             endingExitArmed = true;
-            storyDoor?.OpenByStory();
+            storyDoor?.OpenByStory(false);
             SetLightEnabled(exitLight, true);
             endingZone?.SetTriggerEnabled(true);
             if (windSource != null && windClip != null)
@@ -1194,6 +1230,13 @@ namespace DoNotDraw.World
             endingActive = true;
             endingExitArmed = false;
             StopRearLookRule();
+            turnTestActive = false;
+            if (turnRoutine != null)
+            {
+                StopCoroutine(turnRoutine);
+                turnRoutine = null;
+            }
+            rearSource?.Stop();
             if (threatFadeRoutine != null)
             {
                 StopCoroutine(threatFadeRoutine);
@@ -1209,6 +1252,10 @@ namespace DoNotDraw.World
             {
                 movementController.enabled = false;
             }
+            if (playerFootsteps != null)
+            {
+                playerFootsteps.enabled = false;
+            }
             if (playerRoot != null && playerStartMarker != null)
             {
                 playerRoot.SetPositionAndRotation(playerStartMarker.position, playerStartMarker.rotation);
@@ -1218,6 +1265,7 @@ namespace DoNotDraw.World
                 playerView.localRotation = initialViewLocalRotation;
             }
             inSecondRoom = false;
+            playerFootsteps?.SetAlternateSurface(false);
             firstRoomSet?.SetActive(true);
             secondRoomSet?.SetActive(false);
             lightSwitchRoot?.SetActive(false);
@@ -1247,6 +1295,7 @@ namespace DoNotDraw.World
                     ambientSource.Play();
                 }
             }
+            StartClockLoop();
             secondRoomInteraction?.SetInteractionEnabled(false);
             primaryInteraction?.SetInteractionEnabled(false);
             if (runner != null && primaryPresenter != null)
@@ -1271,31 +1320,44 @@ namespace DoNotDraw.World
         {
             float startFov = playerCamera != null ? playerCamera.fieldOfView : initialCameraFov;
             float elapsed = 0f;
-            const float zoomDuration = 5f;
-            while (elapsed < zoomDuration)
+            while (elapsed < EndingDurationSeconds)
             {
                 elapsed += Time.unscaledDeltaTime;
-                float t = Mathf.Clamp01(elapsed / zoomDuration);
+                float t = Mathf.Clamp01(elapsed / EndingDurationSeconds);
                 t = t * t * (3f - 2f * t);
                 if (playerCamera != null)
                 {
                     playerCamera.fieldOfView = Mathf.Lerp(startFov, 24f, t);
                 }
+
+                if (screenFade != null)
+                {
+                    float fade = Mathf.InverseLerp(
+                        EndingDurationSeconds - EndingFadeSeconds,
+                        EndingDurationSeconds,
+                        elapsed);
+                    screenFade.alpha = fade;
+                    screenFade.blocksRaycasts = fade > 0f;
+                }
+
                 yield return null;
             }
             if (screenFade != null)
             {
-                screenFade.blocksRaycasts = true;
-                elapsed = 0f;
-                while (elapsed < 1f)
-                {
-                    elapsed += Time.unscaledDeltaTime;
-                    screenFade.alpha = Mathf.Clamp01(elapsed);
-                    yield return null;
-                }
                 screenFade.alpha = 1f;
+                screenFade.blocksRaycasts = true;
             }
             endingRoutine = null;
+            QuitGame();
+        }
+
+        private static void QuitGame()
+        {
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
         }
 
         private void HandleCardDrawStarted(CardDefinition card, int drawIndex)
@@ -1367,7 +1429,7 @@ namespace DoNotDraw.World
             float rotation = Time.deltaTime * 6f;
             firstClockHand?.Rotate(0f, 0f, -rotation, Space.Self);
             secondClockHand?.Rotate(0f, 0f, rotation, Space.Self);
-            if (Time.unscaledTime >= nextClockTick)
+            if (clockLoopClip == null && Time.unscaledTime >= nextClockTick)
             {
                 nextClockTick = Time.unscaledTime + 1f;
                 if (clockSource != null && clockTickClip != null)
@@ -1495,6 +1557,25 @@ namespace DoNotDraw.World
             if (oneShotSource != null && clip != null)
             {
                 oneShotSource.PlayOneShot(clip, volume);
+            }
+        }
+
+        private void StartClockLoop()
+        {
+            if (clockSource == null || clockLoopClip == null)
+            {
+                return;
+            }
+
+            if (clockSource.clip != clockLoopClip)
+            {
+                clockSource.Stop();
+                clockSource.clip = clockLoopClip;
+            }
+            clockSource.loop = true;
+            if (!clockSource.isPlaying)
+            {
+                clockSource.Play();
             }
         }
 
