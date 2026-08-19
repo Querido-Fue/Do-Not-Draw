@@ -31,6 +31,10 @@ namespace DoNotDraw.Narrative.Editor
         private const string BackroomsTextureRoot = "Assets/DoNotDraw/Textures/Backrooms";
         private const string BackroomsWallpaperPath = BackroomsTextureRoot + "/BackroomsWallpaper_Tileable.png";
         private const string BackroomsCarpetPath = BackroomsTextureRoot + "/BackroomsCarpet_Tileable.png";
+        private const string BackroomsAssetMaterialRoot =
+            "Assets/Asset/BackroomsLikeAsset/material";
+        private const string BackroomsTrimMaterialPath =
+            BackroomsAssetMaterialRoot + "/Wall_trim_mat.mat";
         private const string CardArtRoot = "Assets/Art/Card";
         private const string VoiceSourcePath = "Assets/Sounds/voice.mp3";
         private const string VoiceOutputRoot = "Assets/Sounds/voice";
@@ -934,6 +938,17 @@ namespace DoNotDraw.Narrative.Editor
             return clip;
         }
 
+        private static Material LoadRequiredMaterial(string path)
+        {
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+            {
+                throw new InvalidOperationException(
+                    $"[Final Experience] Required material was not found: {path}");
+            }
+            return material;
+        }
+
         private static void BuildScene(Scene scene, NarrativeAssets assets)
         {
             GameObject oldRoot = FindSceneObject(scene, FinalRootName);
@@ -1003,6 +1018,7 @@ namespace DoNotDraw.Narrative.Editor
                 0.08f,
                 0.12f,
                 true);
+            Material wallTrim = LoadRequiredMaterial(BackroomsTrimMaterialPath);
             Material fluorescentFrame = GetOrCreateMaterial(
                 $"{FinalMaterialRoot}/BackroomsFluorescentFrame.mat",
                 new Color(0.29f, 0.3f, 0.27f, 1f),
@@ -1097,6 +1113,7 @@ namespace DoNotDraw.Narrative.Editor
                 floor,
                 ceiling,
                 ceilingGrid,
+                wallTrim,
                 fluorescentFrame,
                 fluorescentEmitter,
                 doorMaterial,

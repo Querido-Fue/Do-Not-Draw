@@ -60,6 +60,11 @@ namespace DoNotDraw.Narrative.Editor
             "Assets/DoNotDraw/Materials/Final/PreplacedCardFour.mat";
         private const string ThreatEntityPrefabPath =
             "Assets/ExternalModels/BackroomsEntity/BackroomsEntity.prefab";
+        private const string BackroomsSurfacePrefabPath =
+            "Assets/Asset/BackroomsLikeAsset/prefab/Tiles/Tiles_01_Fill.prefab";
+        private const float BackroomsSurfaceWidth = 4f;
+        private const float BackroomsSurfaceHeight = 3.75f;
+        private const float BackroomsSurfaceDepth = 4f;
 
         public static DetailedRoomSetRefs Build(
             Transform parent,
@@ -69,6 +74,7 @@ namespace DoNotDraw.Narrative.Editor
             Material floor,
             Material ceiling,
             Material ceilingGrid,
+            Material wallTrim,
             Material fluorescentFrame,
             Material fluorescentEmitter,
             Material doorMaterial,
@@ -102,8 +108,8 @@ namespace DoNotDraw.Narrative.Editor
                 playerController.skinWidth = 0.02f;
             }
 
-            BuildFirstRoomShell(refs.FirstRoomSet.transform, wall, floor, ceiling, ceilingGrid);
-            BuildSecondRoomShell(refs.SecondRoomSet.transform, wall, floor, ceiling, ceilingGrid);
+            BuildFirstRoomShell(refs.FirstRoomSet.transform, wall, floor, ceiling, ceilingGrid, wallTrim);
+            BuildSecondRoomShell(refs.SecondRoomSet.transform, wall, floor, ceiling, ceilingGrid, wallTrim);
 
             originalDesk.transform.position = Vector3.zero;
             originalDesk.transform.rotation = Quaternion.identity;
@@ -167,6 +173,7 @@ namespace DoNotDraw.Narrative.Editor
                 nickel,
                 windowMaterial,
                 curtainMaterial,
+                wallTrim,
                 doorCreak,
                 doorSlam,
                 false,
@@ -191,6 +198,7 @@ namespace DoNotDraw.Narrative.Editor
                 nickel,
                 windowMaterial,
                 curtainMaterial,
+                wallTrim,
                 doorCreak,
                 doorSlam,
                 true,
@@ -341,10 +349,18 @@ namespace DoNotDraw.Narrative.Editor
             Material wall,
             Material floor,
             Material ceiling,
-            Material ceilingGrid)
+            Material ceilingGrid,
+            Material wallTrim)
         {
-            BuildSharedShell(parent, 0f, wall, floor, ceiling, ceilingGrid);
+            BuildSharedShell(parent, 0f, wall, floor, ceiling, ceilingGrid, wallTrim);
             CreateCube("First South Wall", parent, new Vector3(0f, 1.5f, -RoomDepth * 0.5f), new Vector3(RoomWidth, 3.2f, 0.18f), wall);
+            CreateHorizontalBaseboard(
+                parent,
+                "First South Baseboard",
+                -RoomWidth * 0.5f,
+                RoomWidth * 0.5f,
+                -RoomDepth * 0.5f + 0.115f,
+                wallTrim);
         }
 
         private static void BuildSecondRoomShell(
@@ -352,9 +368,10 @@ namespace DoNotDraw.Narrative.Editor
             Material wall,
             Material floor,
             Material ceiling,
-            Material ceilingGrid)
+            Material ceilingGrid,
+            Material wallTrim)
         {
-            BuildSharedShell(parent, SecondRoomCenterZ, wall, floor, ceiling, ceilingGrid);
+            BuildSharedShell(parent, SecondRoomCenterZ, wall, floor, ceiling, ceilingGrid, wallTrim);
             float openingLeft = SecondDoorX - DoorWidth * 0.5f;
             float openingRight = SecondDoorX + DoorWidth * 0.5f;
             float leftWidth = openingLeft + RoomWidth * 0.5f;
@@ -377,6 +394,21 @@ namespace DoNotDraw.Narrative.Editor
                 new Vector3(0f, DoorHeight + (RoomHeight - DoorHeight) * 0.5f, NorthWallZ + RoomSeparation),
                 new Vector3(RoomWidth, RoomHeight - DoorHeight, 0.18f),
                 wall);
+            float interiorBaseboardZ = NorthWallZ + RoomSeparation + 0.115f;
+            CreateHorizontalBaseboard(
+                parent,
+                "Second South Baseboard Left",
+                -RoomWidth * 0.5f,
+                openingLeft,
+                interiorBaseboardZ,
+                wallTrim);
+            CreateHorizontalBaseboard(
+                parent,
+                "Second South Baseboard Right",
+                openingRight,
+                RoomWidth * 0.5f,
+                interiorBaseboardZ,
+                wallTrim);
         }
 
         private static void BuildSharedShell(
@@ -385,47 +417,110 @@ namespace DoNotDraw.Narrative.Editor
             Material wall,
             Material floor,
             Material ceiling,
-            Material ceilingGrid)
+            Material ceilingGrid,
+            Material wallTrim)
         {
-            CreateCube("Backrooms Carpet", parent, new Vector3(0f, -0.1f, centerZ), new Vector3(RoomWidth, 0.2f, RoomDepth), floor);
-            CreateCube("Drop Ceiling Backing", parent, new Vector3(0f, RoomHeight + 0.1f, centerZ), new Vector3(RoomWidth, 0.2f, RoomDepth), ceiling);
-            BuildDropCeilingGrid(parent, centerZ, ceilingGrid);
+            GameObject floorCollider = CreateCube(
+                "Backrooms Carpet Collider",
+                parent,
+                new Vector3(0f, -0.1f, centerZ),
+                new Vector3(RoomWidth, 0.2f, RoomDepth),
+                floor);
+            GameObject ceilingCollider = CreateCube(
+                "Drop Ceiling Collider",
+                parent,
+                new Vector3(0f, RoomHeight + 0.1f, centerZ),
+                new Vector3(RoomWidth, 0.2f, RoomDepth),
+                ceiling);
+            SetRendererEnabled(floorCollider, false);
+            SetRendererEnabled(ceilingCollider, false);
+            BuildBackroomsAssetSurfaceShell(parent, centerZ);
+            BuildCeilingPerimeterFrame(parent, centerZ, ceilingGrid);
             CreateCube("West Wallpaper Wall", parent, new Vector3(-RoomWidth * 0.5f, 1.5f, centerZ), new Vector3(0.18f, 3.2f, RoomDepth), wall);
             CreateCube("East Wallpaper Wall", parent, new Vector3(RoomWidth * 0.5f, 1.5f, centerZ), new Vector3(0.18f, 3.2f, RoomDepth), wall);
+            CreateCube(
+                "West Wall Baseboard",
+                parent,
+                new Vector3(-RoomWidth * 0.5f + 0.115f, 0.08f, centerZ),
+                new Vector3(0.07f, 0.16f, RoomDepth - 0.2f),
+                wallTrim,
+                false);
+            CreateCube(
+                "East Wall Baseboard",
+                parent,
+                new Vector3(RoomWidth * 0.5f - 0.115f, 0.08f, centerZ),
+                new Vector3(0.07f, 0.16f, RoomDepth - 0.2f),
+                wallTrim,
+                false);
         }
 
-        private static void BuildDropCeilingGrid(Transform parent, float centerZ, Material material)
+        private static void BuildBackroomsAssetSurfaceShell(Transform parent, float centerZ)
         {
-            const float cellSize = 0.6f;
-            const float railThickness = 0.026f;
-            const float railDepth = 0.032f;
-            float undersideY = RoomHeight - railDepth * 0.5f;
-
-            int columns = Mathf.RoundToInt(RoomWidth / cellSize);
-            for (int column = 0; column <= columns; column++)
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(BackroomsSurfacePrefabPath);
+            if (prefab == null)
             {
-                float x = -RoomWidth * 0.5f + column * cellSize;
-                CreateCube(
-                    $"Ceiling Grid X {column:00}",
-                    parent,
-                    new Vector3(x, undersideY, centerZ),
-                    new Vector3(railThickness, railDepth, RoomDepth),
-                    material,
-                    false);
+                throw new InvalidOperationException(
+                    $"The backrooms floor and ceiling prefab is missing at '{BackroomsSurfacePrefabPath}'.");
             }
 
-            int rows = Mathf.RoundToInt(RoomDepth / cellSize);
-            for (int row = 0; row <= rows; row++)
+            GameObject surface = PrefabUtility.InstantiatePrefab(prefab, parent) as GameObject;
+            if (surface == null)
             {
-                float z = centerZ - RoomDepth * 0.5f + row * cellSize;
-                CreateCube(
-                    $"Ceiling Grid Z {row:00}",
-                    parent,
-                    new Vector3(0f, undersideY, z),
-                    new Vector3(RoomWidth, railDepth, railThickness),
-                    material,
-                    false);
+                surface = UnityEngine.Object.Instantiate(prefab, parent, false);
             }
+
+            surface.name = "Backrooms Asset Pack Floor + Ceiling";
+            surface.transform.localPosition = new Vector3(0f, 0f, centerZ);
+            surface.transform.localRotation = Quaternion.identity;
+            surface.transform.localScale = new Vector3(
+                RoomWidth / BackroomsSurfaceWidth,
+                RoomHeight / BackroomsSurfaceHeight,
+                RoomDepth / BackroomsSurfaceDepth);
+
+            foreach (Collider collider in surface.GetComponentsInChildren<Collider>(true))
+            {
+                UnityEngine.Object.DestroyImmediate(collider);
+            }
+
+            if (surface.GetComponentInChildren<Renderer>(true) == null)
+            {
+                throw new InvalidOperationException(
+                    $"The backrooms surface prefab at '{BackroomsSurfacePrefabPath}' has no renderer.");
+            }
+        }
+
+        private static void BuildCeilingPerimeterFrame(Transform parent, float centerZ, Material material)
+        {
+            const float railThickness = 0.035f;
+            float undersideY = RoomHeight - railThickness * 0.5f;
+            CreateCube(
+                "Ceiling Perimeter West",
+                parent,
+                new Vector3(-RoomWidth * 0.5f + railThickness * 0.5f, undersideY, centerZ),
+                new Vector3(railThickness, railThickness, RoomDepth),
+                material,
+                false);
+            CreateCube(
+                "Ceiling Perimeter East",
+                parent,
+                new Vector3(RoomWidth * 0.5f - railThickness * 0.5f, undersideY, centerZ),
+                new Vector3(railThickness, railThickness, RoomDepth),
+                material,
+                false);
+            CreateCube(
+                "Ceiling Perimeter South",
+                parent,
+                new Vector3(0f, undersideY, centerZ - RoomDepth * 0.5f + railThickness * 0.5f),
+                new Vector3(RoomWidth, railThickness, railThickness),
+                material,
+                false);
+            CreateCube(
+                "Ceiling Perimeter North",
+                parent,
+                new Vector3(0f, undersideY, centerZ + RoomDepth * 0.5f - railThickness * 0.5f),
+                new Vector3(RoomWidth, railThickness, railThickness),
+                material,
+                false);
         }
 
         private static void BuildNorthWallFeatures(
@@ -437,6 +532,7 @@ namespace DoNotDraw.Narrative.Editor
             Material nickel,
             Material windowMaterial,
             Material curtainMaterial,
+            Material wallTrim,
             AudioClip doorCreak,
             AudioClip doorSlam,
             bool secondRoom,
@@ -473,6 +569,12 @@ namespace DoNotDraw.Narrative.Editor
                 new Vector3(WindowX, 0.4f, wallZ),
                 new Vector3(DoorWidth, 0.8f, 0.18f),
                 wall);
+            float interiorBaseboardZ = wallZ - 0.115f;
+            CreateHorizontalBaseboard(parent, "North Baseboard Far Left", leftEdge, firstLeft, interiorBaseboardZ, wallTrim);
+            CreateHorizontalBaseboard(parent, "North Baseboard Between First And Window", firstRight, windowLeft, interiorBaseboardZ, wallTrim);
+            CreateHorizontalBaseboard(parent, "North Baseboard Below Window", windowLeft, windowRight, interiorBaseboardZ, wallTrim);
+            CreateHorizontalBaseboard(parent, "North Baseboard Between Window And Second", windowRight, secondLeft, interiorBaseboardZ, wallTrim);
+            CreateHorizontalBaseboard(parent, "North Baseboard Far Right", secondRight, rightEdge, interiorBaseboardZ, wallTrim);
 
             if (secondRoom)
             {
@@ -533,6 +635,24 @@ namespace DoNotDraw.Narrative.Editor
         {
             float width = Mathf.Max(0.02f, end - start);
             CreateCube(name, parent, new Vector3((start + end) * 0.5f, DoorHeight * 0.5f, z), new Vector3(width, DoorHeight, 0.18f), wall);
+        }
+
+        private static void CreateHorizontalBaseboard(
+            Transform parent,
+            string name,
+            float start,
+            float end,
+            float z,
+            Material material)
+        {
+            float width = Mathf.Max(0.02f, end - start);
+            CreateCube(
+                name,
+                parent,
+                new Vector3((start + end) * 0.5f, 0.08f, z),
+                new Vector3(width, 0.16f, 0.07f),
+                material,
+                false);
         }
 
         private static HorrorDoorInteractable BuildDoor(
@@ -644,16 +764,18 @@ namespace DoNotDraw.Narrative.Editor
 
             Vector3[] fixturePositions =
             {
-                new Vector3(-1.45f, 0.29f, -1.42f),
-                new Vector3(0.95f, 0.29f, -0.5f),
-                new Vector3(-0.75f, 0.29f, 0.48f),
-                new Vector3(1.35f, 0.29f, 1.43f)
+                new Vector3(-1.55f, 0.36f, -1.2f),
+                new Vector3(0f, 0.36f, -1.2f),
+                new Vector3(1.55f, 0.36f, -1.2f),
+                new Vector3(-1.55f, 0.36f, 1.2f),
+                new Vector3(0f, 0.36f, 1.2f),
+                new Vector3(1.55f, 0.36f, 1.2f)
             };
             for (int index = 0; index < fixturePositions.Length; index++)
             {
                 BuildFluorescentFixture(
                     root.transform,
-                    $"Fluorescent Troffer {index + 1:00}",
+                    $"Large Fluorescent Diffuser {index + 1:00}",
                     fixturePositions[index],
                     frameMaterial,
                     emitterMaterial);
@@ -684,23 +806,19 @@ namespace DoNotDraw.Narrative.Editor
             fixture.transform.localPosition = localPosition;
 
             CreateCube(
-                "Recessed Housing",
+                "Diffuser Frame",
                 fixture.transform,
                 Vector3.zero,
-                new Vector3(1.08f, 0.045f, 0.52f),
+                new Vector3(1.12f, 0.045f, 0.82f),
                 frameMaterial,
                 false);
-            for (int tube = 0; tube < 4; tube++)
-            {
-                float x = -0.36f + tube * 0.24f;
-                CreateCube(
-                    $"Fluorescent Tube {tube + 1:00}",
-                    fixture.transform,
-                    new Vector3(x, -0.031f, 0f),
-                    new Vector3(0.058f, 0.026f, 0.42f),
-                    emitterMaterial,
-                    false);
-            }
+            CreateCube(
+                "Luminous Diffuser Panel",
+                fixture.transform,
+                new Vector3(0f, -0.031f, 0f),
+                new Vector3(1.02f, 0.024f, 0.72f),
+                emitterMaterial,
+                false);
         }
 
         private static Transform BuildClock(string name, Transform parent, Vector3 position, Material wood, Material metal)
@@ -958,6 +1076,15 @@ namespace DoNotDraw.Narrative.Editor
             cube.transform.localRotation = Quaternion.identity;
             cube.transform.localScale = scale;
             return cube;
+        }
+
+        private static void SetRendererEnabled(GameObject owner, bool enabled)
+        {
+            Renderer renderer = owner != null ? owner.GetComponent<Renderer>() : null;
+            if (renderer != null)
+            {
+                renderer.enabled = enabled;
+            }
         }
 
         private static GameObject CreatePrimitive(
