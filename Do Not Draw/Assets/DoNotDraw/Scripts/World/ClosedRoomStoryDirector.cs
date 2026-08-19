@@ -90,7 +90,7 @@ namespace DoNotDraw.World
         [SerializeField] private Transform secondRoomRimAnchor;
         [SerializeField] private Light silhouetteBacklight;
         [SerializeField] private Light exitLight;
-        [SerializeField, Range(0f, 0.05f)] private float flickerAmplitude = 0.045f;
+        [SerializeField, Range(0f, 0.05f)] private float flickerAmplitude;
 
         [Header("Doors And Switch")]
         [SerializeField] private HorrorLightSwitchInteractable lightSwitch;
@@ -156,6 +156,8 @@ namespace DoNotDraw.World
         private float secondLightBase;
         private float initialAmbientVolume;
         private float initialCameraFov;
+        private float initialLampColorTemperature;
+        private float initialSecondLampColorTemperature;
         private Color initialLampColor;
         private Color initialSecondLampColor;
         private Vector3 baseViewLocalPosition;
@@ -218,6 +220,10 @@ namespace DoNotDraw.World
             initialSecondLampColor = secondRoomLampLight != null
                 ? secondRoomLampLight.color
                 : initialLampColor;
+            initialLampColorTemperature = lampLight != null ? lampLight.colorTemperature : 4200f;
+            initialSecondLampColorTemperature = secondRoomLampLight != null
+                ? secondRoomLampLight.colorTemperature
+                : initialLampColorTemperature;
             initialAmbientVolume = ambientSource != null ? ambientSource.volume : 0f;
             initialCameraFov = playerCamera != null ? playerCamera.fieldOfView : 60f;
             baseViewLocalPosition = playerView != null ? playerView.localPosition : Vector3.zero;
@@ -371,10 +377,12 @@ namespace DoNotDraw.World
             if (lampLight != null)
             {
                 lampLight.color = initialLampColor;
+                lampLight.colorTemperature = initialLampColorTemperature;
             }
             if (secondRoomLampLight != null)
             {
                 secondRoomLampLight.color = initialSecondLampColor;
+                secondRoomLampLight.colorTemperature = initialSecondLampColorTemperature;
             }
 
             primaryInteraction?.SetInteractionEnabled(false);
@@ -597,7 +605,7 @@ namespace DoNotDraw.World
             }
             ClearFallback();
             SetLightEnabled(moonLight, false);
-            RestoreAlteredWarmLight();
+            RestoreAlteredFluorescentLight();
             RevealSecondDoor();
             SetFact(lightSwitchUsedFact, true);
             runner?.RequestExternalAdvance();
@@ -612,17 +620,17 @@ namespace DoNotDraw.World
             }
         }
 
-        private void RestoreAlteredWarmLight()
+        private void RestoreAlteredFluorescentLight()
         {
             if (lampLight != null)
             {
-                lampLight.color = new Color(1f, 0.62f, 0.45f);
-                lampLight.colorTemperature = 2500f;
+                lampLight.color = new Color(1f, 0.86f, 0.5f);
+                lampLight.colorTemperature = 3600f;
             }
             if (secondRoomLampLight != null)
             {
-                secondRoomLampLight.color = new Color(1f, 0.62f, 0.45f);
-                secondRoomLampLight.colorTemperature = 2500f;
+                secondRoomLampLight.color = new Color(1f, 0.86f, 0.5f);
+                secondRoomLampLight.colorTemperature = 3600f;
             }
             SetLightEnabled(lampLight, true);
             SetLightEnabled(secondRoomLampLight, true);
@@ -695,7 +703,7 @@ namespace DoNotDraw.World
                     SetLightEnabled(secondRoomLampLight, false);
                     PlayOneShot(lampTickClip, 0.42f);
                     yield return new WaitForSecondsRealtime(0.15f);
-                    RestoreAlteredWarmLight();
+                    RestoreAlteredFluorescentLight();
                     RevealSecondDoor();
                     lightSwitch?.SetInteractionEnabled(false);
                     SetFact(lightSwitchUsedFact, true);
@@ -1239,6 +1247,7 @@ namespace DoNotDraw.World
             if (lampLight != null)
             {
                 lampLight.color = initialLampColor;
+                lampLight.colorTemperature = initialLampColorTemperature;
             }
             windSource?.Stop();
             transitionSource?.Stop();
