@@ -15,6 +15,7 @@ MonoBehaviour:
   stableId: final.card.do_not_draw_survival
   displayName: DO NOT DRAW.
   faceText: DO NOT DRAW.
+  faceTexture: {fileID: 2800000, guid: 0ec84665e951b654da4f42d6d705cf11, type: 3}
   faceAccentMaterial: {fileID: 2100000, guid: b9160984b09414d40a89c3d4461c8eab, type: 2}
   faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}
   drawSoundOverride: {fileID: 0}
@@ -22,6 +23,12 @@ MonoBehaviour:
   voiceClip: {fileID: 8300000, guid: 12dee796f3ae7b14583e1de4d7f6211a, type: 3}
   voiceVolume: 0.82
   voiceDelay: 0.16
+  textFadeDuration: 0.18
+  typographyStage: 0
+  doubleExposureDuration: 0
+  liftOnReveal: 0
+  revealLiftHeight: 0.045
+  revealLiftDuration: 0.4
   tags:
   - final
   - flow-authority

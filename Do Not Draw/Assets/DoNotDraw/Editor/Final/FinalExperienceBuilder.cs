@@ -22,6 +22,7 @@ namespace DoNotDraw.Narrative.Editor
         private const string SignalRoot = FinalDataRoot + "/Signals";
         private const string SequenceRoot = FinalDataRoot + "/Sequences";
         private const string FinalMaterialRoot = "Assets/DoNotDraw/Materials/Final";
+        private const string CardArtRoot = "Assets/Art/Card";
         private const string VoiceSourcePath = "Assets/Sounds/voice.mp3";
         private const string VoiceOutputRoot = "Assets/Sounds/voice";
 
@@ -38,6 +39,11 @@ namespace DoNotDraw.Narrative.Editor
             public string Key;
             public string Text;
             public string DisplayName;
+            public string FaceTextureFileName;
+            public CardTypographyStage TypographyStage;
+            public float TextFadeDuration = 0.28f;
+            public float DoubleExposureDuration;
+            public bool LiftOnReveal;
         }
 
         private sealed class ConditionSpec
@@ -431,11 +437,18 @@ namespace DoNotDraw.Narrative.Editor
                 Set(serialized, "stableId", $"final.card.{spec.Key}");
                 Set(serialized, "displayName", spec.DisplayName);
                 Set(serialized, "faceText", spec.Text);
+                Set(serialized, "faceTexture", LoadCardFaceTexture(spec.FaceTextureFileName));
                 Set(serialized, "faceAccentMaterial", index % 3 == 0 ? blackAccent : redAccent);
                 Set(serialized, "faceTextColor", new Color(0.055f, 0.035f, 0.025f, 1f));
                 Set(serialized, "voiceClip", index < voiceClips.Count ? voiceClips[index] : null);
                 Set(serialized, "voiceVolume", 0.82f);
                 Set(serialized, "voiceDelay", 0.16f);
+                Set(serialized, "textFadeDuration", spec.TextFadeDuration);
+                serialized.FindProperty("typographyStage").enumValueIndex = (int)spec.TypographyStage;
+                Set(serialized, "doubleExposureDuration", spec.DoubleExposureDuration);
+                Set(serialized, "liftOnReveal", spec.LiftOnReveal);
+                Set(serialized, "revealLiftHeight", 0.045f);
+                Set(serialized, "revealLiftDuration", 0.4f);
                 SetStringArray(serialized.FindProperty("tags"), new[] { "final", "flow-authority", spec.Key });
                 serialized.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(card);
@@ -453,7 +466,7 @@ namespace DoNotDraw.Narrative.Editor
                      {
                          "light_switch_used", "second_door_opened", "entered_second_room",
                          "enter_card_drawn", "exited_second_room", "window_silhouette_seen",
-                         "turned_around", "door_silhouette_seen", "left_room"
+                         "turned_around", "turn_test_resolved", "door_silhouette_seen", "left_room"
                      })
             {
                 StoryFact fact = GetOrCreateAsset<StoryFact>($"{FactRoot}/{factKey}.asset");
@@ -469,11 +482,12 @@ namespace DoNotDraw.Narrative.Editor
 
             foreach (string signalKey in new[]
                      {
-                         "rear_warning", "reveal_light_switch", "enable_light_switch",
-                         "enable_second_door", "mark_enter_card_drawn", "slam_second_door",
-                         "window_silhouette", "darken_for_hunt", "start_hunt", "settle_after_hunt",
-                         "turn_around_test", "door_opens_itself", "door_crack_silhouette",
-                         "open_exit", "show_ending"
+                         "begin_opening", "pulse_opening_card", "rear_look_rule", "arm_light_rule",
+                         "arm_second_door_rule", "arm_enter_rule", "act_one_to_two",
+                         "resume_atmosphere", "arm_window_vision", "pause_sensory_beat",
+                         "act_two_to_three", "start_hunt_far", "start_hunt_close",
+                         "act_three_to_four", "start_turn_test", "schedule_first_door",
+                         "swing_shadow", "open_exit", "prepare_ending", "show_ending"
                      })
             {
                 StorySignal signal = GetOrCreateAsset<StorySignal>($"{SignalRoot}/{signalKey}.asset");
@@ -495,32 +509,91 @@ namespace DoNotDraw.Narrative.Editor
             return new List<CardSpec>
             {
                 Card("do_not_draw_opening", "DO NOT DRAW."),
-                Card("do_not_look_behind_early", "DO NOT LOOK BEHIND YOU."),
-                Card("do_not_turn_off_light", "DO NOT TURN OFF THE LIGHT."),
-                Card("do_not_open_second_door", "DO NOT OPEN THE SECOND DOOR."),
-                Card("do_not_enter", "DO NOT ENTER."),
+                Card("do_not_look_behind_early", "DO NOT LOOK BEHIND YOU.", faceTextureFileName: "Card1_DoNotLookBehindYou.png"),
+                Card("do_not_turn_off_light", "DO NOT TURN OFF THE LIGHT.", faceTextureFileName: "Card2_DoNotTurnOffTheLight.png"),
+                Card("do_not_open_second_door", "DO NOT OPEN THE SECOND DOOR.", faceTextureFileName: "Card3_DoNotOpenTheSecondDoor.png"),
+                Card("do_not_enter", "DO NOT ENTER.", faceTextureFileName: "Card4_DoNotEnter.png"),
+                // Card6_YouSee.png has no matching card in the authoritative 19-step flow.
+                // Keep the unused room-card definition textually correct instead of showing mismatched art.
                 Card("do_not_draw_next_room_card", "DO NOT DRAW CARD OF NEXT ROOM."),
-                Card("do_not_look_at_door", "DO NOT LOOK AT THE DOOR."),
-                Card("do_not_look_through_window", "DO NOT LOOK THROUGH THE WINDOW."),
-                Card("you_already_did", "YOU ALREADY DID."),
-                Card("do_not_draw_next_card", "DO NOT DRAW THE NEXT CARD."),
-                Card("do_not_draw_survival", "DO NOT DRAW."),
-                Card("do_not_turn_around", "DO NOT TURN AROUND."),
-                Card("good", "GOOD."),
-                Card("i_saw_you_look", "I SAW YOU LOOK."),
-                Card("do_not_touch_door", "DO NOT TOUCH THE DOOR."),
-                Card("why_did_you_open_it", "WHY DID YOU OPEN IT?"),
-                Card("do_not_blame_cards", "DO NOT BLAME THE CARDS."),
-                Card("do_not_look_behind_door", "DO NOT LOOK BEHIND YOU."),
-                Card("you_saw_it", "YOU SAW IT."),
-                Card("do_not_leave", "DO NOT LEAVE."),
-                Card("do_not_draw_again", "DO NOT DRAW AGAIN.")
+                Card("do_not_look_at_door", "DO NOT LOOK AT THE DOOR.", CardTypographyStage.Uneven, faceTextureFileName: "Card5_DoNotLookAtTheDoor.png"),
+                Card("do_not_look_through_window", "DO NOT LOOK THROUGH THE WINDOW.", CardTypographyStage.Uneven, faceTextureFileName: "Card7_DoNotLookAtTheWindow.png"),
+                Card("you_already_did", "YOU ALREADY DID.", CardTypographyStage.Uneven, 1.05f, faceTextureFileName: "Card7_YouAleadyDid.png"),
+                Card("do_not_draw_next_card", "DO NOT DRAW THE NEXT CARD.", CardTypographyStage.Uneven, faceTextureFileName: "Card8_DoNotDrawTheNextCard.png"),
+                Card("do_not_draw_survival", "DO NOT DRAW.", CardTypographyStage.Clean, 0.18f, faceTextureFileName: "Card9_DoNotDraw.png"),
+                Card("do_not_turn_around", "DO NOT TURN AROUND.", CardTypographyStage.Uneven, faceTextureFileName: "Card10_DoNotTurnAround.png"),
+                Card("good", "GOOD.", CardTypographyStage.Uneven, 0.28f, 0f, true),
+                Card("i_saw_you_look", "I SAW YOU LOOK.", CardTypographyStage.Uneven, 0.28f, 0f, true, "Card11_ISawYouLook.png"),
+                Card("do_not_touch_door", "DO NOT TOUCH THE DOOR.", CardTypographyStage.Uneven, faceTextureFileName: "Card12_DoNotTouchTheDoor.png"),
+                Card("why_did_you_open_it", "WHY DID YOU OPEN IT?", CardTypographyStage.Uneven, 1.05f, faceTextureFileName: "Card13_WhyDidYouOpenIt.png"),
+                Card("do_not_blame_cards", "DO NOT BLAME THE CARDS.", CardTypographyStage.Damaged, 0.8f, faceTextureFileName: "Card14_DoNotBlameTheCards.png"),
+                Card("do_not_look_behind_door", "DO NOT LOOK BEHIND YOU.", CardTypographyStage.DoubleExposure, 0.32f, 0.18f, faceTextureFileName: "Card15_DoNotLookBehindYou.png"),
+                Card("you_saw_it", "YOU SAW IT.", CardTypographyStage.DoubleExposure, 1.05f, 0.3f, faceTextureFileName: "Card16_YouSawIt.png"),
+                Card("do_not_leave", "DO NOT LEAVE.", CardTypographyStage.DoubleExposure, 0.32f, 0.18f, faceTextureFileName: "Card17_DoNotLeave.png"),
+                Card("do_not_draw_again", "DO NOT DRAW AGAIN.", CardTypographyStage.DoubleExposure, 0.4f, 0.25f)
             };
         }
 
-        private static CardSpec Card(string key, string text)
+        private static CardSpec Card(
+            string key,
+            string text,
+            CardTypographyStage typographyStage = CardTypographyStage.Clean,
+            float textFadeDuration = 0.28f,
+            float doubleExposureDuration = 0f,
+            bool liftOnReveal = false,
+            string faceTextureFileName = null)
         {
-            return new CardSpec { Key = key, Text = text, DisplayName = text };
+            return new CardSpec
+            {
+                Key = key,
+                Text = text,
+                DisplayName = text,
+                FaceTextureFileName = faceTextureFileName,
+                TypographyStage = typographyStage,
+                TextFadeDuration = textFadeDuration,
+                DoubleExposureDuration = doubleExposureDuration,
+                LiftOnReveal = liftOnReveal
+            };
+        }
+
+        private static Texture2D LoadCardFaceTexture(string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                return null;
+            }
+
+            string path = $"{CardArtRoot}/{fileName}";
+            TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null)
+            {
+                throw new InvalidOperationException($"Card face texture was not found at '{path}'.");
+            }
+
+            bool requiresReimport = importer.textureType != TextureImporterType.Default
+                || importer.wrapMode != TextureWrapMode.Clamp
+                || importer.npotScale != TextureImporterNPOTScale.None
+                || !importer.mipmapEnabled
+                || !importer.sRGBTexture
+                || importer.filterMode != FilterMode.Bilinear;
+            if (requiresReimport)
+            {
+                importer.textureType = TextureImporterType.Default;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.npotScale = TextureImporterNPOTScale.None;
+                importer.mipmapEnabled = true;
+                importer.sRGBTexture = true;
+                importer.filterMode = FilterMode.Bilinear;
+                importer.SaveAndReimport();
+            }
+
+            Texture2D texture = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            if (texture == null)
+            {
+                throw new InvalidOperationException($"Unity could not import card face texture '{path}'.");
+            }
+
+            return texture;
         }
 
         private static CardSequenceDefinition BuildFinalSequence(NarrativeAssets assets)
@@ -530,99 +603,112 @@ namespace DoNotDraw.Narrative.Editor
             Dictionary<string, CardDefinition> c = assets.Cards;
             List<StepSpec> steps = new List<StepSpec>();
 
-            steps.Add(Step("s01_opening", c["do_not_draw_opening"], 0.55f));
+            StepSpec opening = Step("s01_opening", c["do_not_draw_opening"], 0.7f);
+            opening.EnterSignals.Add(s["begin_opening"]);
+            opening.RevealSignals.Add(s["pulse_opening_card"]);
+            steps.Add(opening);
 
-            StepSpec rear = Step("s02_rear_warning", c["do_not_look_behind_early"], 1.2f);
-            rear.RevealSignals.Add(s["rear_warning"]);
+            StepSpec rear = Step("s02_rear_rule", c["do_not_look_behind_early"], 0.75f);
+            rear.RevealSignals.Add(s["rear_look_rule"]);
             steps.Add(rear);
 
-            StepSpec light = Step("s03_light_rule", c["do_not_turn_off_light"], 0.55f, true);
-            light.EnterSignals.Add(s["reveal_light_switch"]);
-            light.RevealSignals.Add(s["enable_light_switch"]);
-            light.Transitions.Add(Transition("s04_second_door", Condition(f["light_switch_used"])));
-            light.Transitions.Add(Transition("s03_light_rule"));
+            StepSpec light = Step("s03_light_rule", c["do_not_turn_off_light"], 0.35f, true);
+            light.RevealSignals.Add(s["arm_light_rule"]);
+            light.CompletionConditions.Add(Condition(f["light_switch_used"]));
             steps.Add(light);
 
-            StepSpec door = Step("s04_second_door", c["do_not_open_second_door"], 0.55f, true);
-            door.RevealSignals.Add(s["enable_second_door"]);
-            door.Transitions.Add(Transition("s05_do_not_enter", Condition(f["second_door_opened"])));
-            door.Transitions.Add(Transition("s04_second_door"));
+            StepSpec door = Step("s04_second_door", c["do_not_open_second_door"], 0.35f, true);
+            door.RevealSignals.Add(s["arm_second_door_rule"]);
+            door.CompletionConditions.Add(Condition(f["second_door_opened"]));
             steps.Add(door);
 
-            StepSpec enter = Step("s05_do_not_enter", c["do_not_enter"], 0.65f, true);
-            enter.Transitions.Add(Transition("s06_look_at_door", Condition(f["entered_second_room"])));
-            enter.Transitions.Add(Transition("s05_do_not_enter"));
+            StepSpec enter = Step("s05_do_not_enter", c["do_not_enter"], 0.35f, true);
+            enter.RevealSignals.Add(s["arm_enter_rule"]);
+            enter.CompletionConditions.Add(Condition(f["entered_second_room"]));
             steps.Add(enter);
 
-            steps.Add(Step("s05a_next_room_card", c["do_not_draw_next_room_card"], 0.7f));
+            StepSpec actOneTransition = EventStep("transition_act_one_to_two");
+            actOneTransition.ActivationSignals.Add(s["act_one_to_two"]);
+            actOneTransition.CompletionDelay = 5.5f;
+            steps.Add(actOneTransition);
 
-            StepSpec waitReenter = EventStep("s05a_wait_reenter");
-            waitReenter.CompletionConditions.Add(Condition(f["entered_second_room"]));
-            steps.Add(waitReenter);
-
-            StepSpec lookDoor = Step("s06_look_at_door", c["do_not_look_at_door"], 0.9f, true);
-            lookDoor.ActivationSignals.Add(s["mark_enter_card_drawn"]);
-            lookDoor.RevealSignals.Add(s["slam_second_door"]);
-            lookDoor.Transitions.Add(Transition(
-                "s05a_next_room_card",
-                Condition(f["exited_second_room"]),
-                Condition(f["enter_card_drawn"], false)));
+            StepSpec lookDoor = Step("s06_look_at_door", c["do_not_look_at_door"], 0.8f);
+            lookDoor.Mode = CardSequenceStepMode.AutomaticDraw;
+            lookDoor.RevealSignals.Add(s["resume_atmosphere"]);
             steps.Add(lookDoor);
 
-            StepSpec window = Step("s07_window", c["do_not_look_through_window"], 2.2f);
-            window.RevealSignals.Add(s["window_silhouette"]);
-            window.Transitions.Add(Transition("s08_already_did", Condition(f["window_silhouette_seen"])));
-            window.Transitions.Add(Transition("s07_window"));
+            StepSpec window = Step("s07_window", c["do_not_look_through_window"], 0.35f, true);
+            window.RevealSignals.Add(s["arm_window_vision"]);
+            window.CompletionConditions.Add(Condition(f["window_silhouette_seen"]));
             steps.Add(window);
 
-            StepSpec already = Step("s08_already_did", c["you_already_did"], 0.9f);
-            already.CompleteSignals.Add(s["darken_for_hunt"]);
+            StepSpec already = Step("s08_already_did", c["you_already_did"], 0.4f);
+            already.CompleteSignals.Add(s["act_two_to_three"]);
             steps.Add(already);
 
-            StepSpec huntOne = Step("s09_survival_one", c["do_not_draw_next_card"], 0.8f);
-            huntOne.ReadyDelay = 2.2f;
-            huntOne.EnterSignals.Add(s["start_hunt"]);
+            StepSpec actTwoTransition = EventStep("transition_act_two_to_three");
+            actTwoTransition.CompletionDelay = 5f;
+            steps.Add(actTwoTransition);
+
+            StepSpec huntOne = Step("s09_next_card", c["do_not_draw_next_card"], 0.5f);
+            huntOne.Mode = CardSequenceStepMode.AutomaticDraw;
+            huntOne.RevealSignals.Add(s["start_hunt_far"]);
             steps.Add(huntOne);
 
-            StepSpec huntTwo = Step("s10_survival_two", c["do_not_draw_survival"], 0.9f);
-            huntTwo.ReadyDelay = 1.6f;
-            huntTwo.EnterSignals.Add(s["start_hunt"]);
-            huntTwo.CompleteSignals.Add(s["settle_after_hunt"]);
+            StepSpec huntTwo = Step("s10_do_not_draw", c["do_not_draw_survival"], 0.35f);
+            huntTwo.RevealSignals.Add(s["start_hunt_close"]);
+            huntTwo.CompleteSignals.Add(s["act_three_to_four"]);
             steps.Add(huntTwo);
 
-            StepSpec turn = Step("s11_turn_around", c["do_not_turn_around"], 0.45f);
-            turn.ReadyDelay = 1.2f;
-            turn.RevealSignals.Add(s["turn_around_test"]);
+            StepSpec actThreeTransition = EventStep("transition_act_three_to_four");
+            actThreeTransition.CompletionDelay = 3f;
+            steps.Add(actThreeTransition);
+
+            StepSpec turn = Step("s11_turn_around", c["do_not_turn_around"], 0f, true);
+            turn.Mode = CardSequenceStepMode.AutomaticDraw;
+            turn.RevealSignals.Add(s["start_turn_test"]);
+            turn.CompletionConditions.Add(Condition(f["turn_test_resolved"]));
             steps.Add(turn);
 
-            StepSpec result = Step("s11_result", c["good"], 0.75f);
+            StepSpec result = Step("s12_result", c["good"], 0.8f);
+            result.Mode = CardSequenceStepMode.AutomaticDraw;
             VariantSpec sawLook = new VariantSpec { Card = c["i_saw_you_look"] };
             sawLook.Conditions.Add(Condition(f["turned_around"]));
             result.Variants.Add(sawLook);
             steps.Add(result);
 
-            StepSpec touchDoor = Step("s12_touch_door", c["do_not_touch_door"], 2f);
-            touchDoor.RevealSignals.Add(s["door_opens_itself"]);
+            StepSpec touchDoor = Step("s13_touch_door", c["do_not_touch_door"], 4.65f);
+            touchDoor.RevealSignals.Add(s["schedule_first_door"]);
             steps.Add(touchDoor);
-            steps.Add(Step("s13_accusation", c["why_did_you_open_it"], 0.9f));
-            steps.Add(Step("s14_blame", c["do_not_blame_cards"], 1f));
 
-            StepSpec crack = Step("s15_door_crack", c["do_not_look_behind_door"], 1.8f, true);
-            crack.RevealSignals.Add(s["door_crack_silhouette"]);
-            crack.Transitions.Add(Transition("s16_you_saw_it", Condition(f["door_silhouette_seen"])));
-            crack.Transitions.Add(Transition("s15_door_crack"));
-            steps.Add(crack);
+            StepSpec accusation = Step("s14_accusation", c["why_did_you_open_it"], 0.75f);
+            accusation.RevealSignals.Add(s["pause_sensory_beat"]);
+            steps.Add(accusation);
+            steps.Add(Step("s15_blame", c["do_not_blame_cards"], 0.8f));
 
-            steps.Add(Step("s16_you_saw_it", c["you_saw_it"], 0.9f));
+            StepSpec shadowTransition = EventStep("transition_act_four_to_five");
+            shadowTransition.ActivationSignals.Add(s["swing_shadow"]);
+            shadowTransition.CompletionDelay = 1f;
+            steps.Add(shadowTransition);
 
-            StepSpec leave = Step("s17_do_not_leave", c["do_not_leave"], 0f, true);
+            StepSpec callback = Step("s16_rear_callback", c["do_not_look_behind_door"], 0.8f);
+            callback.RevealSignals.Add(s["rear_look_rule"]);
+            steps.Add(callback);
+
+            StepSpec sawIt = Step("s17_you_saw_it", c["you_saw_it"], 0.8f);
+            sawIt.RevealSignals.Add(s["pause_sensory_beat"]);
+            steps.Add(sawIt);
+
+            StepSpec leave = Step("s18_do_not_leave", c["do_not_leave"], 0f, true);
             leave.RevealSignals.Add(s["open_exit"]);
             leave.CompletionConditions.Add(Condition(f["left_room"]));
             steps.Add(leave);
 
-            StepSpec ending = EventStep("s18_wall_ending");
-            ending.ActivationSignals.Add(s["show_ending"]);
-            ending.CompletionDelay = 6f;
+            StepSpec ending = Step("s19_do_not_draw_again", c["do_not_draw_again"], 7f);
+            ending.Mode = CardSequenceStepMode.AutomaticDraw;
+            ending.ReadyDelay = 0.05f;
+            ending.EnterSignals.Add(s["prepare_ending"]);
+            ending.RevealSignals.Add(s["show_ending"]);
             TransitionSpec finish = new TransitionSpec { Finish = true };
             ending.Transitions.Add(finish);
             steps.Add(ending);
@@ -631,7 +717,7 @@ namespace DoNotDraw.Narrative.Editor
                 $"{SequenceRoot}/FinalFlowSequence.asset");
             SerializedObject serialized = new SerializedObject(sequence);
             Set(serialized, "stableId", "final.sequence.flow_authority");
-            Set(serialized, "description", "Authoritative implementation of 흐름. (벽); other documents only fill unspecified presentation details.");
+            Set(serialized, "description", "Authoritative 19-card implementation of DO_NOT_DRAW_연출상세기획.txt, including the GOOD/I SAW YOU LOOK branch.");
             Set(serialized, "initialDeckSize", 48);
             SerializedProperty stepArray = serialized.FindProperty("steps");
             stepArray.arraySize = steps.Count;
@@ -759,44 +845,74 @@ namespace DoNotDraw.Narrative.Editor
                 UnityEngine.Object.DestroyImmediate(oldRoot);
             }
 
-            GameObject originalNorthWall = FindSceneObject(scene, "North Wall");
             GameObject originalDesk = FindSceneObject(scene, "Desk - Center");
             GameObject primaryDeckObject = FindSceneObject(scene, "Card Deck System");
             GameObject player = FindSceneObject(scene, "Player - First Person Controller");
-            GameObject warmLightObject = FindSceneObject(scene, "Warm Point Light");
             GameObject atmosphereObject = FindSceneObject(scene, "Atmosphere - Horror");
             GameObject promptPanel = FindSceneObject(scene, "Draw Card Prompt");
             Text promptText = FindSceneObject(scene, "Prompt Text")?.GetComponent<Text>();
 
-            if (originalNorthWall == null || originalDesk == null || primaryDeckObject == null || player == null)
+            if (originalDesk == null || primaryDeckObject == null || player == null)
             {
                 throw new InvalidOperationException("[Final Experience] Required ClosedRoom scene objects were not found.");
             }
 
-            originalNorthWall.SetActive(false);
+            FindSceneObject(scene, "Room Shell")?.SetActive(false);
+            FindSceneObject(scene, "North Wall")?.SetActive(false);
+            FindSceneObject(scene, "Warm Point Light")?.SetActive(false);
+            FindSceneObject(scene, "Warm Bulb")?.SetActive(false);
+            FindSceneObject(scene, "Small Ceiling Bulb")?.SetActive(false);
             GameObject root = new GameObject(FinalRootName);
             SceneManager.MoveGameObjectToScene(root, scene);
 
-            Material wall = AssetDatabase.LoadAssetAtPath<Material>("Assets/DoNotDraw/Materials/Wall.mat");
-            Material floor = AssetDatabase.LoadAssetAtPath<Material>("Assets/DoNotDraw/Materials/Floor.mat");
-            Material ceiling = AssetDatabase.LoadAssetAtPath<Material>("Assets/DoNotDraw/Materials/Ceiling.mat");
+            Material wall = GetOrCreateWorldSpaceConcreteMaterial();
+            Texture2D woodTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(
+                "Assets/DoNotDraw/Textures/Wood/Texturelabs_Wood_189XL.jpg");
+            Material floor = woodTexture != null
+                ? GetOrCreateTexturedMaterial(
+                    $"{FinalMaterialRoot}/AgedWoodFloor.mat",
+                    woodTexture,
+                    new Color(0.34f, 0.25f, 0.18f, 1f),
+                    new Vector2(1.35f, 2.4f),
+                    0f,
+                    0.16f)
+                : AssetDatabase.LoadAssetAtPath<Material>("Assets/DoNotDraw/Materials/Floor.mat");
+            Material ceiling = wall;
+            Material wood = AssetDatabase.LoadAssetAtPath<Material>("Assets/DoNotDraw/Materials/DeskWood.mat")
+                ?? floor;
             Material doorMaterial = GetOrCreateMaterial(
                 $"{FinalMaterialRoot}/DoorDark.mat",
                 new Color(0.075f, 0.055f, 0.042f, 1f),
                 0.08f,
                 0.2f,
                 false);
-            Material metal = GetOrCreateMaterial(
+            Material switchMetal = GetOrCreateMaterial(
                 $"{FinalMaterialRoot}/SwitchMetal.mat",
                 new Color(0.07f, 0.065f, 0.06f, 1f),
                 0.72f,
                 0.35f,
                 false);
-            Material silhouetteMaterial = GetOrCreateMaterial(
+            Material brass = GetOrCreateMaterial(
+                $"{FinalMaterialRoot}/AgedBrass.mat",
+                new Color(0.3f, 0.18f, 0.06f, 1f),
+                0.82f,
+                0.32f,
+                false);
+            Material nickel = GetOrCreateMaterial(
+                $"{FinalMaterialRoot}/DullNickel.mat",
+                new Color(0.28f, 0.3f, 0.31f, 1f),
+                0.9f,
+                0.38f,
+                false);
+            Material curtain = GetOrCreateMaterial(
+                $"{FinalMaterialRoot}/DustyCurtain.mat",
+                new Color(0.16f, 0.09f, 0.07f, 1f),
+                0f,
+                0.18f,
+                false);
+            Material silhouetteMaterial = GetOrCreateTransparentMaterial(
                 $"{FinalMaterialRoot}/Silhouette.mat",
                 new Color(0.0015f, 0.001f, 0.001f, 1f),
-                0f,
-                0f,
                 true);
             Material windowMaterial = GetOrCreateMaterial(
                 $"{FinalMaterialRoot}/WindowBlack.mat",
@@ -804,33 +920,53 @@ namespace DoNotDraw.Narrative.Editor
                 0.15f,
                 0.12f,
                 true);
+            Material windowVisionMaterial = GetOrCreateTransparentMaterial(
+                $"{FinalMaterialRoot}/WindowRoomEcho.mat",
+                new Color(0.46f, 0.39f, 0.3f, 0.25f),
+                true);
+            Material whiteLightMaterial = GetOrCreateTransparentMaterial(
+                $"{FinalMaterialRoot}/ExitWhiteGlow.mat",
+                new Color(1f, 1f, 1f, 0.92f),
+                true);
             Material interactionGlow = GetOrCreateInteractionGlowMaterial();
 
-            BuildFirstRoomDoorWall(root.transform, wall, doorMaterial);
-            HorrorDoorInteractable secondDoor = FindChildRecursive(root.transform, "Second Door Pivot")
-                .GetComponent<HorrorDoorInteractable>();
-            GameObject secondDoorCover = FindChildRecursive(root.transform, "Second Door Concealing Wall").gameObject;
-            ConfigureInteractionGlow(secondDoor, interactionGlow);
+            AudioClip switchClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Horror/LightSwitch.wav");
+            AudioClip doorCreak = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Horror/DoorCreak.wav");
+            AudioClip doorSlam = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Horror/DoorSlam.wav");
+            AudioClip rearWarning = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Horror/RearWarning.wav");
+            AudioClip breathing = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Horror/ThreatBreathing.wav");
+            AudioClip drone = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Horror/ThreatDrone.wav");
+            AudioClip cardTap = AssetDatabase.LoadAssetAtPath<AudioClip>(
+                "Assets/Sounds/Card/Card_Game_Movement_Tap_03.wav");
 
-            GameObject secondRoom = BuildSecondRoom(
+            DetailedRoomSetRefs room = DetailedRoomSetFactory.Build(
                 root.transform,
                 originalDesk,
+                player.transform,
                 wall,
                 floor,
                 ceiling,
+                doorMaterial,
+                wood,
+                brass,
+                nickel,
                 windowMaterial,
-                out CardDeckPresenter secondPresenter,
-                out CardDeckInteraction secondInteraction,
-                out Light secondLight);
+                curtain,
+                silhouetteMaterial,
+                windowVisionMaterial,
+                whiteLightMaterial,
+                doorCreak,
+                doorSlam);
+            ConfigureInteractionGlow(room.SecondDoor, interactionGlow);
 
             CardSequenceRunner runner = primaryDeckObject.GetComponent<CardSequenceRunner>();
             StoryBlackboard blackboard = primaryDeckObject.GetComponent<StoryBlackboard>();
             CardDeckPresenter primaryPresenter = primaryDeckObject.GetComponent<CardDeckPresenter>();
             CardDeckInteraction primaryInteraction = primaryDeckObject.GetComponent<CardDeckInteraction>();
             ConfigureDeckInteraction(primaryDeckObject, primaryInteraction, runner, true);
-            ConfigureDeckInteraction(secondInteraction.gameObject, secondInteraction, runner, false);
+            ConfigureDeckInteraction(room.SecondInteraction.gameObject, room.SecondInteraction, runner, false);
             ConfigureInteractionGlow(primaryInteraction, interactionGlow);
-            ConfigureInteractionGlow(secondInteraction, interactionGlow);
+            ConfigureInteractionGlow(room.SecondInteraction, interactionGlow);
 
             if (assets.Sequence == null || !EditorUtility.IsPersistent(assets.Sequence))
             {
@@ -854,94 +990,36 @@ namespace DoNotDraw.Narrative.Editor
 
             SerializedObject routerSerialized = new SerializedObject(interactionRouter);
             Set(routerSerialized, "viewTransform", playerCamera != null ? playerCamera.transform : player.transform);
-            Set(routerSerialized, "maxDistance", 2.65f);
+            Set(routerSerialized, "maxDistance", 2.4f);
             Set(routerSerialized, "promptPanel", promptPanel);
             Set(routerSerialized, "promptText", promptText);
             routerSerialized.ApplyModifiedPropertiesWithoutUndo();
 
-            AudioClip switchClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Horror/LightSwitch.wav");
-            AudioClip doorCreak = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Horror/DoorCreak.wav");
-            AudioClip doorSlam = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Horror/DoorSlam.wav");
-            AudioClip rearWarning = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Horror/RearWarning.wav");
-            AudioClip breathing = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Horror/ThreatBreathing.wav");
-            AudioClip drone = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/Horror/ThreatDrone.wav");
-            AudioClip whoosh = AssetDatabase.LoadAssetAtPath<AudioClip>(
-                "Assets/Sounds/Card/Card_Game_Movement_Deal_Single_Whoosh_02.wav");
-
-            ConfigureDoor(secondDoor, doorCreak, doorSlam);
+            ConfigureDoor(room.SecondDoor, doorCreak, doorSlam);
+            ConfigureDoor(room.StoryDoor, doorCreak, doorSlam);
             HorrorLightSwitchInteractable lightSwitch = BuildLightSwitch(
                 root.transform,
                 originalDesk.transform,
-                metal,
+                switchMetal,
                 switchClip);
             ConfigureInteractionGlow(lightSwitch, interactionGlow);
-
-            Transform rearTarget = CreateMarker(root.transform, "Rear Warning Target", new Vector3(0f, 1.25f, -2.75f));
-            GameObject windowSilhouette = CreateSilhouette(
-                "Window Silhouette",
-                secondRoom.transform,
-                new Vector3(0f, 0f, 9.28f),
-                silhouetteMaterial,
-                0.82f);
-            Transform windowTarget = CreateMarker(windowSilhouette.transform, "Window Gaze Target", new Vector3(0f, 1.45f, 0f), true);
-
-            GameObject threat = CreateSilhouette(
-                "Approaching Silhouette",
-                secondRoom.transform,
-                new Vector3(0f, 0f, 8.65f),
-                silhouetteMaterial,
-                1.05f);
-            Transform threatStart = CreateMarker(root.transform, "Threat Start", new Vector3(0f, 0f, 8.65f));
-            Transform threatEnd = CreateMarker(root.transform, "Threat End", new Vector3(0f, 0f, 6.15f));
-
-            GameObject crackSilhouette = CreateSilhouette(
-                "Door Crack Silhouette",
-                root.transform,
-                new Vector3(1.4f, 0f, 2.63f),
-                silhouetteMaterial,
-                0.9f);
-            Transform crackTarget = CreateMarker(crackSilhouette.transform, "Door Crack Gaze Target", new Vector3(0f, 1.5f, 0f), true);
-
-            NarrativeZoneTrigger secondRoomZone = CreateZone(
-                "Second Room Entry Zone",
-                root.transform,
-                new Vector3(1.4f, 1f, 3.82f),
-                new Vector3(1.45f, 2f, 0.72f),
-                NarrativeZoneId.SecondRoom,
-                player.transform,
-                true);
-            NarrativeZoneTrigger returnZone = CreateZone(
-                "Return To First Room Zone",
-                root.transform,
-                new Vector3(1.4f, 1f, 2.62f),
-                new Vector3(1.45f, 2f, 0.72f),
-                NarrativeZoneId.ReturnedToFirstRoom,
-                player.transform,
-                false);
-
-            BuildEndingCorridor(
-                root.transform,
-                wall,
-                ceiling,
-                player.transform,
-                out GameObject endingCorridor,
-                out GameObject endingMessage,
-                out NarrativeZoneTrigger endingZone);
             CanvasGroup screenFade = BuildScreenFade(root.transform);
 
             GameObject directorObject = new GameObject("Closed Room Story Director");
             directorObject.transform.SetParent(root.transform, false);
+            AudioSource clockSource = AddAudioSource(directorObject, false);
             AudioSource rearSource = AddAudioSource(directorObject, true);
             AudioSource threatSource = AddAudioSource(directorObject, true);
+            AudioSource transitionSource = AddAudioSource(directorObject, false);
+            AudioSource windSource = AddAudioSource(directorObject, true);
             AudioSource oneShotSource = AddAudioSource(directorObject, false);
             ClosedRoomStoryDirector director = directorObject.AddComponent<ClosedRoomStoryDirector>();
             Behaviour movement = player.GetComponentsInChildren<Behaviour>(true)
                 .FirstOrDefault(component => component.GetType().Name == "FirstPersonController");
             ConfigurePlayerMovement(movement);
-            Light firstLight = warmLightObject != null ? warmLightObject.GetComponent<Light>() : null;
             AudioSource ambience = atmosphereObject != null ? atmosphereObject.GetComponent<AudioSource>() : null;
 
-            ConfigureDirector(
+            ConfigureDetailedDirector(
                 director,
                 assets,
                 runner,
@@ -951,35 +1029,21 @@ namespace DoNotDraw.Narrative.Editor
                 movement,
                 primaryPresenter,
                 primaryInteraction,
-                secondPresenter,
-                secondInteraction,
-                firstLight,
-                secondLight,
+                room,
                 lightSwitch,
-                secondDoor,
-                secondDoorCover,
-                secondRoomZone,
-                returnZone,
-                endingZone,
-                rearTarget,
-                windowTarget,
-                crackTarget,
-                windowSilhouette,
-                threat.transform,
-                threatStart,
-                threatEnd,
-                crackSilhouette,
-                endingCorridor,
-                endingMessage,
                 screenFade,
                 ambience,
+                clockSource,
                 rearSource,
                 threatSource,
+                transitionSource,
+                windSource,
                 oneShotSource,
                 rearWarning,
                 breathing,
-                whoosh,
-                drone);
+                drone,
+                cardTap,
+                doorCreak);
         }
 
         private static void BuildFirstRoomDoorWall(Transform parent, Material wall, Material doorMaterial)
@@ -1362,6 +1426,134 @@ namespace DoNotDraw.Narrative.Editor
             return group;
         }
 
+        private static void ConfigureDetailedDirector(
+            ClosedRoomStoryDirector director,
+            NarrativeAssets assets,
+            CardSequenceRunner runner,
+            StoryBlackboard blackboard,
+            Transform player,
+            Transform view,
+            Behaviour movement,
+            CardDeckPresenter primaryPresenter,
+            CardDeckInteraction primaryInteraction,
+            DetailedRoomSetRefs room,
+            HorrorLightSwitchInteractable lightSwitch,
+            CanvasGroup screenFade,
+            AudioSource ambience,
+            AudioSource clockSource,
+            AudioSource rearSource,
+            AudioSource threatSource,
+            AudioSource transitionSource,
+            AudioSource windSource,
+            AudioSource oneShotSource,
+            AudioClip rearImpact,
+            AudioClip breathing,
+            AudioClip drone,
+            AudioClip cardTap,
+            AudioClip floorCreak)
+        {
+            SerializedObject serialized = new SerializedObject(director);
+            Set(serialized, "runner", runner);
+            Set(serialized, "blackboard", blackboard);
+            Set(serialized, "playerRoot", player);
+            Set(serialized, "playerView", view);
+            Set(serialized, "playerCamera", view != null ? view.GetComponent<Camera>() : null);
+            Set(serialized, "movementController", movement);
+            Set(serialized, "playerStartMarker", room.PlayerStartMarker);
+            Set(serialized, "secondRoomPlayerMarker", room.SecondRoomPlayerMarker);
+            Set(serialized, "primaryPresenter", primaryPresenter);
+            Set(serialized, "primaryInteraction", primaryInteraction);
+            Set(serialized, "secondRoomPresenter", room.SecondPresenter);
+            Set(serialized, "secondRoomInteraction", room.SecondInteraction);
+            Set(serialized, "firstRoomSet", room.FirstRoomSet);
+            Set(serialized, "secondRoomSet", room.SecondRoomSet);
+            Set(serialized, "lightSwitchRoot", lightSwitch.gameObject);
+            Set(serialized, "secondDoorRoot", room.SecondDoor.gameObject);
+            Set(serialized, "secondDoorCover", room.SecondDoorCover);
+            Set(serialized, "windowVision", room.WindowVision);
+            Set(serialized, "endingPortraitSilhouette", room.EndingPortraitSilhouette);
+            Set(serialized, "lampLight", room.FirstLamp);
+            Set(serialized, "secondRoomLampLight", room.SecondLamp);
+            Set(serialized, "moonLight", room.MoonLight);
+            Set(serialized, "rearDoorRimLight", room.RearRimLight);
+            Set(serialized, "firstRoomRimAnchor", room.FirstRearRimAnchor);
+            Set(serialized, "secondRoomRimAnchor", room.SecondRearRimAnchor);
+            Set(serialized, "silhouetteBacklight", room.SilhouetteBacklight);
+            Set(serialized, "exitLight", room.ExitLight);
+            Set(serialized, "lightSwitch", lightSwitch);
+            Set(serialized, "secondDoor", room.SecondDoor);
+            Set(serialized, "storyDoor", room.StoryDoor);
+            Set(serialized, "secondRoomZone", room.SecondRoomZone);
+            Set(serialized, "endingZone", room.EndingZone);
+            Set(serialized, "windowGazeTarget", room.WindowGazeTarget);
+            Set(serialized, "threatSilhouette", room.Threat);
+            Set(serialized, "threatStart", room.ThreatStart);
+            Set(serialized, "threatEnd", room.ThreatEnd);
+            Set(serialized, "firstClockHand", room.FirstClockHand);
+            Set(serialized, "secondClockHand", room.SecondClockHand);
+            Set(serialized, "shadowCaster", room.ShadowCaster);
+            Set(serialized, "screenFade", screenFade);
+            Set(serialized, "enableClimaxThreat", false);
+            Set(serialized, "ambientSource", ambience);
+            Set(serialized, "clockSource", clockSource);
+            Set(serialized, "rearSource", rearSource);
+            Set(serialized, "threatSource", threatSource);
+            Set(serialized, "transitionSource", transitionSource);
+            Set(serialized, "windSource", windSource);
+            Set(serialized, "oneShotSource", oneShotSource);
+            Set(serialized, "clockTickClip", cardTap);
+            Set(serialized, "floorCreakClip", floorCreak);
+            Set(serialized, "rearImpactClip", rearImpact);
+            Set(serialized, "threatBreathingClip", breathing);
+            Set(serialized, "threatDroneClip", drone);
+            Set(serialized, "whiteNoiseClip", drone);
+            Set(serialized, "windClip", breathing);
+            Set(serialized, "lampTickClip", cardTap);
+
+            Dictionary<string, StoryFact> facts = assets.Facts;
+            Set(serialized, "lightSwitchUsedFact", facts["light_switch_used"]);
+            Set(serialized, "secondDoorOpenedFact", facts["second_door_opened"]);
+            Set(serialized, "enteredSecondRoomFact", facts["entered_second_room"]);
+            Set(serialized, "windowVisionSeenFact", facts["window_silhouette_seen"]);
+            Set(serialized, "turnedAroundFact", facts["turned_around"]);
+            Set(serialized, "turnTestResolvedFact", facts["turn_test_resolved"]);
+            Set(serialized, "leftRoomFact", facts["left_room"]);
+
+            (string signal, ClosedRoomCue cue)[] bindings =
+            {
+                ("begin_opening", ClosedRoomCue.BeginOpening),
+                ("pulse_opening_card", ClosedRoomCue.PulseOpeningCard),
+                ("rear_look_rule", ClosedRoomCue.StartRearLookRule),
+                ("arm_light_rule", ClosedRoomCue.ArmLightRule),
+                ("arm_second_door_rule", ClosedRoomCue.ArmSecondDoorRule),
+                ("arm_enter_rule", ClosedRoomCue.ArmEnterRule),
+                ("act_one_to_two", ClosedRoomCue.BeginActOneToTwo),
+                ("resume_atmosphere", ClosedRoomCue.ResumeAtmosphere),
+                ("arm_window_vision", ClosedRoomCue.ArmWindowVision),
+                ("pause_sensory_beat", ClosedRoomCue.PauseSensoryBeat),
+                ("act_two_to_three", ClosedRoomCue.BeginActTwoToThree),
+                ("start_hunt_far", ClosedRoomCue.StartHuntFar),
+                ("start_hunt_close", ClosedRoomCue.StartHuntClose),
+                ("act_three_to_four", ClosedRoomCue.BeginActThreeToFour),
+                ("start_turn_test", ClosedRoomCue.StartTurnAroundTest),
+                ("schedule_first_door", ClosedRoomCue.ScheduleFirstDoorOpen),
+                ("swing_shadow", ClosedRoomCue.SwingUnnaturalShadow),
+                ("open_exit", ClosedRoomCue.OpenExit),
+                ("prepare_ending", ClosedRoomCue.PrepareEnding),
+                ("show_ending", ClosedRoomCue.ShowEnding)
+            };
+            SerializedProperty cueArray = serialized.FindProperty("cueBindings");
+            cueArray.arraySize = bindings.Length;
+            for (int index = 0; index < bindings.Length; index++)
+            {
+                SerializedProperty binding = cueArray.GetArrayElementAtIndex(index);
+                binding.FindPropertyRelative("signal").objectReferenceValue = assets.Signals[bindings[index].signal];
+                binding.FindPropertyRelative("cue").enumValueIndex = (int)bindings[index].cue;
+            }
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(director);
+        }
+
         private static void ConfigureDirector(
             ClosedRoomStoryDirector director,
             NarrativeAssets assets,
@@ -1456,20 +1648,25 @@ namespace DoNotDraw.Narrative.Editor
 
             (string signal, ClosedRoomCue cue)[] bindings =
             {
-                ("rear_warning", ClosedRoomCue.StartRearWarning),
-                ("reveal_light_switch", ClosedRoomCue.RevealLightSwitch),
-                ("enable_light_switch", ClosedRoomCue.EnableLightSwitchInteraction),
-                ("enable_second_door", ClosedRoomCue.EnableSecondDoorInteraction),
-                ("mark_enter_card_drawn", ClosedRoomCue.MarkEnterCardDrawn),
-                ("slam_second_door", ClosedRoomCue.SlamSecondDoor),
-                ("window_silhouette", ClosedRoomCue.ShowWindowSilhouette),
-                ("darken_for_hunt", ClosedRoomCue.DarkenForHunt),
-                ("start_hunt", ClosedRoomCue.StartHunt),
-                ("settle_after_hunt", ClosedRoomCue.SettleAfterHunt),
-                ("turn_around_test", ClosedRoomCue.StartTurnAroundTest),
-                ("door_opens_itself", ClosedRoomCue.OpenDoorByItself),
-                ("door_crack_silhouette", ClosedRoomCue.ShowDoorCrackSilhouette),
+                ("begin_opening", ClosedRoomCue.BeginOpening),
+                ("pulse_opening_card", ClosedRoomCue.PulseOpeningCard),
+                ("rear_look_rule", ClosedRoomCue.StartRearLookRule),
+                ("arm_light_rule", ClosedRoomCue.ArmLightRule),
+                ("arm_second_door_rule", ClosedRoomCue.ArmSecondDoorRule),
+                ("arm_enter_rule", ClosedRoomCue.ArmEnterRule),
+                ("act_one_to_two", ClosedRoomCue.BeginActOneToTwo),
+                ("resume_atmosphere", ClosedRoomCue.ResumeAtmosphere),
+                ("arm_window_vision", ClosedRoomCue.ArmWindowVision),
+                ("pause_sensory_beat", ClosedRoomCue.PauseSensoryBeat),
+                ("act_two_to_three", ClosedRoomCue.BeginActTwoToThree),
+                ("start_hunt_far", ClosedRoomCue.StartHuntFar),
+                ("start_hunt_close", ClosedRoomCue.StartHuntClose),
+                ("act_three_to_four", ClosedRoomCue.BeginActThreeToFour),
+                ("start_turn_test", ClosedRoomCue.StartTurnAroundTest),
+                ("schedule_first_door", ClosedRoomCue.ScheduleFirstDoorOpen),
+                ("swing_shadow", ClosedRoomCue.SwingUnnaturalShadow),
                 ("open_exit", ClosedRoomCue.OpenExit),
+                ("prepare_ending", ClosedRoomCue.PrepareEnding),
                 ("show_ending", ClosedRoomCue.ShowEnding)
             };
             SerializedProperty cueArray = serialized.FindProperty("cueBindings");
@@ -1494,6 +1691,46 @@ namespace DoNotDraw.Narrative.Editor
             source.minDistance = 1f;
             source.maxDistance = 14f;
             return source;
+        }
+
+        private static Material GetOrCreateWorldSpaceConcreteMaterial()
+        {
+            const string shaderName = "DoNotDraw/WorldSpaceConcrete";
+            const string albedoPath = "Assets/DoNotDraw/Textures/ConcreteWall_Rough.png";
+            const string normalPath = "Assets/DoNotDraw/Textures/ConcreteWall_Rough_Height.png";
+            string materialPath = $"{FinalMaterialRoot}/WorldSpaceConcrete.mat";
+
+            Shader shader = Shader.Find(shaderName);
+            Texture2D albedo = AssetDatabase.LoadAssetAtPath<Texture2D>(albedoPath);
+            Texture2D normal = AssetDatabase.LoadAssetAtPath<Texture2D>(normalPath);
+            if (shader == null || albedo == null || normal == null)
+            {
+                throw new InvalidOperationException(
+                    "The world-space concrete shader and both concrete textures must be imported before building the scene.");
+            }
+
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
+            if (material == null)
+            {
+                material = new Material(shader);
+                AssetDatabase.CreateAsset(material, materialPath);
+            }
+            else if (material.shader != shader)
+            {
+                material.shader = shader;
+            }
+
+            material.SetTexture("_BaseMap", albedo);
+            material.SetTexture("_BumpMap", normal);
+            material.SetColor("_BaseColor", new Color(0.76f, 0.75f, 0.72f, 1f));
+            material.SetFloat("_WorldTiling", 0.62f);
+            material.SetFloat("_BlendSharpness", 8f);
+            material.SetFloat("_BumpScale", 0.72f);
+            material.SetFloat("_Metallic", 0f);
+            material.SetFloat("_Smoothness", 0.055f);
+            material.SetFloat("_OcclusionStrength", 1f);
+            EditorUtility.SetDirty(material);
+            return material;
         }
 
         private static Material GetOrCreateMaterial(
@@ -1533,6 +1770,109 @@ namespace DoNotDraw.Narrative.Editor
             return material;
         }
 
+        private static Material GetOrCreateTexturedMaterial(
+            string path,
+            Texture2D texture,
+            Color tint,
+            Vector2 tiling,
+            float metallic,
+            float smoothness)
+        {
+            if (texture == null)
+            {
+                throw new ArgumentNullException(nameof(texture));
+            }
+
+            string texturePath = AssetDatabase.GetAssetPath(texture);
+            TextureImporter importer = AssetImporter.GetAtPath(texturePath) as TextureImporter;
+            if (importer != null && (importer.wrapMode != TextureWrapMode.Repeat || !importer.mipmapEnabled))
+            {
+                importer.wrapMode = TextureWrapMode.Repeat;
+                importer.mipmapEnabled = true;
+                importer.sRGBTexture = true;
+                importer.SaveAndReimport();
+                texture = AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath);
+            }
+
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+            {
+                Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+                material = new Material(shader);
+                AssetDatabase.CreateAsset(material, path);
+            }
+            if (material.HasProperty("_BaseMap"))
+            {
+                material.SetTexture("_BaseMap", texture);
+                material.SetTextureScale("_BaseMap", tiling);
+            }
+            material.mainTexture = texture;
+            material.mainTextureScale = tiling;
+            if (material.HasProperty("_BaseColor"))
+            {
+                material.SetColor("_BaseColor", tint);
+            }
+            if (material.HasProperty("_Color"))
+            {
+                material.SetColor("_Color", tint);
+            }
+            if (material.HasProperty("_Metallic"))
+            {
+                material.SetFloat("_Metallic", metallic);
+            }
+            if (material.HasProperty("_Smoothness"))
+            {
+                material.SetFloat("_Smoothness", smoothness);
+            }
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
+        private static Material GetOrCreateTransparentMaterial(string path, Color color, bool unlit)
+        {
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+            {
+                Shader shader = Shader.Find(unlit ? "Universal Render Pipeline/Unlit" : "Universal Render Pipeline/Lit")
+                    ?? Shader.Find("Standard");
+                material = new Material(shader);
+                AssetDatabase.CreateAsset(material, path);
+            }
+
+            if (material.HasProperty("_BaseColor"))
+            {
+                material.SetColor("_BaseColor", color);
+            }
+            if (material.HasProperty("_Color"))
+            {
+                material.SetColor("_Color", color);
+            }
+            if (material.HasProperty("_Surface"))
+            {
+                material.SetFloat("_Surface", 1f);
+            }
+            if (material.HasProperty("_Blend"))
+            {
+                material.SetFloat("_Blend", 0f);
+            }
+            if (material.HasProperty("_SrcBlend"))
+            {
+                material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            }
+            if (material.HasProperty("_DstBlend"))
+            {
+                material.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            }
+            if (material.HasProperty("_ZWrite"))
+            {
+                material.SetFloat("_ZWrite", 0f);
+            }
+            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
         private static Material GetOrCreateInteractionGlowMaterial()
         {
             const string shaderName = "DoNotDraw/InteractionOuterGlow";
@@ -1555,8 +1895,8 @@ namespace DoNotDraw.Narrative.Editor
                 material.shader = shader;
             }
 
-            material.SetColor("_GlowColor", new Color(0.1f, 0.82f, 2.4f, 0.8f));
-            material.SetFloat("_OutlineWidth", 0.026f);
+            material.SetColor("_GlowColor", new Color(0.72f, 0.78f, 0.82f, 0.62f));
+            material.SetFloat("_OutlineWidth", 0.018f);
             EditorUtility.SetDirty(material);
             return material;
         }
