@@ -23,6 +23,7 @@ namespace DoNotDraw.Narrative.Editor
         public Light SilhouetteBacklight;
         public Light ExitLight;
         public NarrativeZoneTrigger SecondRoomZone;
+        public NarrativeZoneTrigger ReturnZone;
         public NarrativeZoneTrigger EndingZone;
         public Transform PlayerStartMarker;
         public Transform SecondRoomPlayerMarker;
@@ -310,6 +311,14 @@ namespace DoNotDraw.Narrative.Editor
                 NarrativeZoneId.SecondRoom,
                 player,
                 true);
+            refs.ReturnZone = BuildZone(
+                "Return To First Room Zone",
+                refs.FirstRoomSet.transform,
+                new Vector3(SecondDoorX, 1f, NorthWallZ - 0.58f),
+                new Vector3(DoorWidth, 2f, 0.72f),
+                NarrativeZoneId.ReturnedToFirstRoom,
+                player,
+                false);
             refs.EndingZone = BuildZone(
                 "Bright Exit Zone",
                 refs.SecondRoomSet.transform,
@@ -642,7 +651,7 @@ namespace DoNotDraw.Narrative.Editor
             light.type = LightType.Point;
             light.color = new Color(1f, 0.98f, 0.9f);
             light.useColorTemperature = true;
-            light.colorTemperature = 5000f;
+            light.colorTemperature = 3600f;
             light.intensity = intensity;
             light.range = 8.2f;
             light.bounceIntensity = 0.8f;
@@ -917,6 +926,10 @@ namespace DoNotDraw.Narrative.Editor
             BoxCollider collider = zone.AddComponent<BoxCollider>();
             collider.isTrigger = true;
             collider.size = size;
+            Rigidbody body = zone.AddComponent<Rigidbody>();
+            body.isKinematic = true;
+            body.useGravity = false;
+            body.detectCollisions = true;
             NarrativeZoneTrigger trigger = zone.AddComponent<NarrativeZoneTrigger>();
             SerializedObject serialized = new SerializedObject(trigger);
             serialized.FindProperty("zoneId").enumValueIndex = (int)id;

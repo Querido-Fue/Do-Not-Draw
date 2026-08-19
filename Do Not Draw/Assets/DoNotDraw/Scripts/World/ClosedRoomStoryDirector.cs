@@ -15,6 +15,8 @@ namespace DoNotDraw.World
         ArmLightRule,
         ArmSecondDoorRule,
         ArmEnterRule,
+        MarkEnterCardDrawn,
+        ResolveRoomCardEdge,
         BeginActOneToTwo,
         ResumeAtmosphere,
         ArmWindowVision,
@@ -45,14 +47,6 @@ namespace DoNotDraw.World
     [DisallowMultipleComponent]
     public sealed class ClosedRoomStoryDirector : MonoBehaviour
     {
-        private enum DeckFallbackRule
-        {
-            None,
-            Light,
-            SecondDoor,
-            Enter
-        }
-
         [Header("Narrative")]
         [SerializeField] private CardSequenceRunner runner;
         [SerializeField] private StoryBlackboard blackboard;
@@ -64,7 +58,6 @@ namespace DoNotDraw.World
         [SerializeField] private Camera playerCamera;
         [SerializeField] private Behaviour movementController;
         [SerializeField] private Transform playerStartMarker;
-        [SerializeField] private Transform secondRoomPlayerMarker;
 
         [Header("Card Stations")]
         [SerializeField] private CardDeckPresenter primaryPresenter;
@@ -97,6 +90,7 @@ namespace DoNotDraw.World
         [SerializeField] private HorrorDoorInteractable secondDoor;
         [SerializeField] private HorrorDoorInteractable storyDoor;
         [SerializeField] private NarrativeZoneTrigger secondRoomZone;
+        [SerializeField] private NarrativeZoneTrigger returnZone;
         [SerializeField] private NarrativeZoneTrigger endingZone;
 
         [Header("Gaze And Silhouette")]
@@ -128,6 +122,7 @@ namespace DoNotDraw.World
         [SerializeField] private AudioSource oneShotSource;
 
         [Header("Audio Clips")]
+        [SerializeField] private AudioClip fluorescentPowerClip;
         [SerializeField] private AudioClip clockTickClip;
         [SerializeField] private AudioClip floorCreakClip;
         [SerializeField] private AudioClip rearImpactClip;
@@ -141,6 +136,8 @@ namespace DoNotDraw.World
         [SerializeField] private StoryFact lightSwitchUsedFact;
         [SerializeField] private StoryFact secondDoorOpenedFact;
         [SerializeField] private StoryFact enteredSecondRoomFact;
+        [SerializeField] private StoryFact enterCardDrawnFact;
+        [SerializeField] private StoryFact exitedSecondRoomFact;
         [SerializeField] private StoryFact windowVisionSeenFact;
         [SerializeField] private StoryFact turnedAroundFact;
         [SerializeField] private StoryFact turnTestResolvedFact;
@@ -184,14 +181,18 @@ namespace DoNotDraw.World
         private bool turnViolationTriggered;
         private bool endingExitArmed;
         private bool endingActive;
-        private DeckFallbackRule fallbackRule;
+        private bool lightRuleBlackoutActive;
+        private int lightRuleRevealCount;
+        private int secondDoorRuleRevealCount;
+        private int enterRuleRevealCount;
+        private float pendingCardDipMinimum = 0.84f;
         private Coroutine lightFadeRoutine;
         private Coroutine dipRoutine;
-        private Coroutine fallbackRoutine;
         private Coroutine threatFadeRoutine;
         private Coroutine sensoryRoutine;
         private Coroutine turnRoutine;
         private Coroutine endingRoutine;
+        private Coroutine presenterSwitchRoutine;
 
         private CardDeckInteraction ActiveDeckInteraction => inSecondRoom
             ? secondRoomInteraction
@@ -251,16 +252,8 @@ namespace DoNotDraw.World
             {
                 secondDoor.PlayerOpened += HandleSecondDoorOpened;
             }
-            if (primaryInteraction != null)
-            {
-                primaryInteraction.BlockedDrawRequested += HandleBlockedDrawRequested;
-            }
-            if (secondRoomInteraction != null)
-            {
-                secondRoomInteraction.BlockedDrawRequested += HandleBlockedDrawRequested;
-            }
-
             SubscribeZone(secondRoomZone);
+            SubscribeZone(returnZone);
             SubscribeZone(endingZone);
         }
 
@@ -287,17 +280,9 @@ namespace DoNotDraw.World
             {
                 secondDoor.PlayerOpened -= HandleSecondDoorOpened;
             }
-            if (primaryInteraction != null)
-            {
-                primaryInteraction.BlockedDrawRequested -= HandleBlockedDrawRequested;
-            }
-            if (secondRoomInteraction != null)
-            {
-                secondRoomInteraction.BlockedDrawRequested -= HandleBlockedDrawRequested;
-            }
             UnsubscribeZone(secondRoomZone);
+            UnsubscribeZone(returnZone);
             UnsubscribeZone(endingZone);
-            ClearFallback();
             if (playerView != null)
             {
                 playerView.localPosition = baseViewLocalPosition;
@@ -306,6 +291,7 @@ namespace DoNotDraw.World
             {
                 playerCamera.fieldOfView = initialCameraFov;
             }
+            presenterSwitchRoutine = null;
         }
 
         private void Update()
@@ -344,7 +330,11 @@ namespace DoNotDraw.World
             turnTestActive = false;
             sensoryFrozen = false;
             microFlickerPaused = false;
-            fallbackRule = DeckFallbackRule.None;
+            lightRuleBlackoutActive = false;
+            lightRuleRevealCount = 0;
+            secondDoorRuleRevealCount = 0;
+            enterRuleRevealCount = 0;
+            pendingCardDipMinimum = 0.84f;
 
             firstRoomSet?.SetActive(true);
             secondRoomSet?.SetActive(true);
@@ -358,6 +348,7 @@ namespace DoNotDraw.World
             storyDoor?.SnapClosed();
             storyDoor?.SetInteractionEnabled(false);
             secondRoomZone?.SetTriggerEnabled(true);
+            returnZone?.SetTriggerEnabled(false);
             endingZone?.SetTriggerEnabled(false);
 
             windowVision?.SetActive(false);
@@ -437,6 +428,12 @@ namespace DoNotDraw.World
                 case ClosedRoomCue.ArmEnterRule:
                     ArmEnterRule();
                     break;
+                case ClosedRoomCue.MarkEnterCardDrawn:
+                    SetFact(enterCardDrawnFact, true);
+                    break;
+                case ClosedRoomCue.ResolveRoomCardEdge:
+                    ResolveRoomCardEdge();
+                    break;
                 case ClosedRoomCue.BeginActOneToTwo:
                     StartCoroutine(ActOneToTwoRoutine());
                     break;
@@ -488,38 +485,26 @@ namespace DoNotDraw.World
 
         private IEnumerator OpeningRoutine()
         {
-            primaryLightBase = 0f;
-            secondLightBase = 0f;
-            SetLightEnabled(lampLight, true);
-            SetLightEnabled(secondRoomLampLight, true);
-            if (screenFade != null)
-            {
-                screenFade.alpha = 1f;
-                screenFade.blocksRaycasts = true;
-            }
-            float elapsed = 0f;
-            const float duration = 2f;
-            while (elapsed < duration)
-            {
-                elapsed += Time.unscaledDeltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
-                t = t * t * (3f - 2f * t);
-                primaryLightBase = Mathf.Lerp(0f, initialLampIntensity, t);
-                secondLightBase = Mathf.Lerp(0f, initialSecondLampIntensity, t);
-                if (screenFade != null)
-                {
-                    screenFade.alpha = 1f - t;
-                }
-                yield return null;
-            }
             primaryLightBase = initialLampIntensity;
             secondLightBase = initialSecondLampIntensity;
+            SetLightEnabled(lampLight, true);
+            SetLightEnabled(secondRoomLampLight, true);
             if (screenFade != null)
             {
                 screenFade.alpha = 0f;
                 screenFade.blocksRaycasts = false;
             }
+            if (ambientSource != null)
+            {
+                ambientSource.volume = initialAmbientVolume;
+                if (!ambientSource.isPlaying)
+                {
+                    ambientSource.Play();
+                }
+            }
+            PlayOneShot(fluorescentPowerClip, 0.55f);
             primaryInteraction?.SetInteractionEnabled(true);
+            yield return null;
         }
 
         private void StartRearLookRule()
@@ -582,28 +567,40 @@ namespace DoNotDraw.World
 
         private void ArmLightRule()
         {
+            bool firstReveal = lightSwitchRoot != null && !lightSwitchRoot.activeSelf;
             lightSwitchRoot?.SetActive(true);
-            lightSwitch?.ResetSwitch(true);
-            lightSwitch?.SetInteractionEnabled(true);
-            ArmFallback(DeckFallbackRule.Light);
+            if (firstReveal)
+            {
+                lightSwitch?.ResetSwitch(true);
+            }
+            if (lightSwitch != null && lightSwitch.IsOn)
+            {
+                lightSwitch.SetInteractionEnabled(true);
+            }
+            QueueRuleCardDip(ref lightRuleRevealCount, true);
         }
 
         private void HandleLightSwitchStateChanged(HorrorLightSwitchInteractable source, bool isOn)
         {
-            if (fallbackRule != DeckFallbackRule.Light)
+            if (GetBool(lightSwitchUsedFact))
             {
                 return;
             }
             if (!isOn)
             {
+                lightRuleBlackoutActive = true;
                 SetLightEnabled(lampLight, false);
                 SetLightEnabled(secondRoomLampLight, false);
                 SetLightEnabled(moonLight, true);
+                if (ambientSource != null)
+                {
+                    ambientSource.volume = 0f;
+                }
                 source.SetInteractionEnabled(false);
                 StartCoroutine(ReenableSwitchAfterDarkHold(source));
                 return;
             }
-            ClearFallback();
+            lightRuleRevealCount = 0;
             SetLightEnabled(moonLight, false);
             RestoreAlteredFluorescentLight();
             RevealSecondDoor();
@@ -613,27 +610,41 @@ namespace DoNotDraw.World
 
         private IEnumerator ReenableSwitchAfterDarkHold(HorrorLightSwitchInteractable source)
         {
-            yield return new WaitForSecondsRealtime(1.65f);
-            if (fallbackRule == DeckFallbackRule.Light && source != null && !source.IsOn)
+            yield return new WaitForSecondsRealtime(1.35f);
+            if (source != null && !source.IsOn && !GetBool(lightSwitchUsedFact))
             {
+                if (clockSource != null && clockTickClip != null)
+                {
+                    clockSource.PlayOneShot(clockTickClip, 0.3f);
+                }
+                yield return new WaitForSecondsRealtime(0.3f);
                 source.SetInteractionEnabled(true);
             }
         }
 
         private void RestoreAlteredFluorescentLight()
         {
+            lightRuleBlackoutActive = false;
             if (lampLight != null)
             {
                 lampLight.color = new Color(1f, 0.86f, 0.5f);
-                lampLight.colorTemperature = 3600f;
+                lampLight.colorTemperature = 3400f;
             }
             if (secondRoomLampLight != null)
             {
                 secondRoomLampLight.color = new Color(1f, 0.86f, 0.5f);
-                secondRoomLampLight.colorTemperature = 3600f;
+                secondRoomLampLight.colorTemperature = 3400f;
             }
             SetLightEnabled(lampLight, true);
             SetLightEnabled(secondRoomLampLight, true);
+            if (ambientSource != null)
+            {
+                ambientSource.volume = initialAmbientVolume;
+                if (!ambientSource.isPlaying)
+                {
+                    ambientSource.Play();
+                }
+            }
             PlayOneShot(rearImpactClip, 0.18f);
         }
 
@@ -647,113 +658,26 @@ namespace DoNotDraw.World
 
         private void ArmSecondDoorRule()
         {
+            QueueRuleCardDip(ref secondDoorRuleRevealCount, false);
             RevealSecondDoor();
             secondDoor?.SetInteractionEnabled(true);
-            ArmFallback(DeckFallbackRule.SecondDoor);
         }
 
         private void HandleSecondDoorOpened(HorrorDoorInteractable source)
         {
-            if (fallbackRule != DeckFallbackRule.SecondDoor)
+            if (GetBool(secondDoorOpenedFact))
             {
                 return;
             }
-            ClearFallback();
+            secondDoorRuleRevealCount = 0;
             SetFact(secondDoorOpenedFact, true);
             runner?.RequestExternalAdvance();
         }
 
         private void ArmEnterRule()
         {
+            QueueRuleCardDip(ref enterRuleRevealCount, false);
             secondRoomZone?.SetTriggerEnabled(true);
-            ArmFallback(DeckFallbackRule.Enter);
-        }
-
-        private void ArmFallback(DeckFallbackRule rule)
-        {
-            ClearFallback();
-            fallbackRule = rule;
-            ActiveDeckInteraction?.SetBlockedDrawInteractionEnabled(true);
-        }
-
-        private void ClearFallback()
-        {
-            fallbackRule = DeckFallbackRule.None;
-            primaryInteraction?.SetBlockedDrawInteractionEnabled(false);
-            secondRoomInteraction?.SetBlockedDrawInteractionEnabled(false);
-        }
-
-        private void HandleBlockedDrawRequested(CardDeckInteraction source)
-        {
-            if (fallbackRule == DeckFallbackRule.None || source != ActiveDeckInteraction || fallbackRoutine != null)
-            {
-                return;
-            }
-            DeckFallbackRule requestedRule = fallbackRule;
-            ClearFallback();
-            fallbackRoutine = StartCoroutine(ExecuteFallback(requestedRule));
-        }
-
-        private IEnumerator ExecuteFallback(DeckFallbackRule rule)
-        {
-            switch (rule)
-            {
-                case DeckFallbackRule.Light:
-                    SetLightEnabled(lampLight, false);
-                    SetLightEnabled(secondRoomLampLight, false);
-                    PlayOneShot(lampTickClip, 0.42f);
-                    yield return new WaitForSecondsRealtime(0.15f);
-                    RestoreAlteredFluorescentLight();
-                    RevealSecondDoor();
-                    lightSwitch?.SetInteractionEnabled(false);
-                    SetFact(lightSwitchUsedFact, true);
-                    runner?.RequestExternalAdvance();
-                    break;
-                case DeckFallbackRule.SecondDoor:
-                    secondDoor?.SetInteractionEnabled(false);
-                    secondDoor?.OpenPartially();
-                    yield return new WaitForSecondsRealtime(0.45f);
-                    SetFact(secondDoorOpenedFact, true);
-                    runner?.RequestExternalAdvance();
-                    break;
-                case DeckFallbackRule.Enter:
-                    yield return SnapPlayerIntoSecondRoom();
-                    EnterSecondRoom();
-                    break;
-            }
-            fallbackRoutine = null;
-        }
-
-        private IEnumerator SnapPlayerIntoSecondRoom()
-        {
-            if (playerRoot == null || secondRoomPlayerMarker == null)
-            {
-                yield break;
-            }
-            bool movementWasEnabled = movementController != null && movementController.enabled;
-            if (movementController != null)
-            {
-                movementController.enabled = false;
-            }
-            Vector3 startPosition = playerRoot.position;
-            Quaternion startRotation = playerRoot.rotation;
-            float elapsed = 0f;
-            const float duration = 0.3f;
-            while (elapsed < duration)
-            {
-                elapsed += Time.unscaledDeltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
-                t *= t;
-                playerRoot.SetPositionAndRotation(
-                    Vector3.Lerp(startPosition, secondRoomPlayerMarker.position, t),
-                    Quaternion.Slerp(startRotation, secondRoomPlayerMarker.rotation, t));
-                yield return null;
-            }
-            playerRoot.SetPositionAndRotation(secondRoomPlayerMarker.position, secondRoomPlayerMarker.rotation);
-            if (movementController != null)
-            {
-                movementController.enabled = movementWasEnabled;
-            }
         }
 
         private void HandleZoneEntered(NarrativeZoneId zoneId)
@@ -762,6 +686,9 @@ namespace DoNotDraw.World
             {
                 case NarrativeZoneId.SecondRoom:
                     EnterSecondRoom();
+                    break;
+                case NarrativeZoneId.ReturnedToFirstRoom:
+                    ReturnToFirstRoom();
                     break;
                 case NarrativeZoneId.EndingCorridor:
                     EnterEndingExit();
@@ -776,21 +703,82 @@ namespace DoNotDraw.World
                 return;
             }
             inSecondRoom = true;
-            ClearFallback();
+            enterRuleRevealCount = 0;
             primaryInteraction?.SetInteractionEnabled(false);
             secondRoomInteraction?.SetInteractionEnabled(true);
-            if (runner != null && secondRoomPresenter != null)
-            {
-                runner.SetPresenter(secondRoomPresenter, true);
-            }
+            returnZone?.SetTriggerEnabled(true);
+            SwitchPresenterForCurrentRoom(true);
+            SetFact(exitedSecondRoomFact, false);
             SetFact(enteredSecondRoomFact, true);
             runner?.RequestExternalAdvance();
+        }
+
+        private void ReturnToFirstRoom()
+        {
+            if (!inSecondRoom || endingExitArmed)
+            {
+                return;
+            }
+            inSecondRoom = false;
+            secondRoomInteraction?.SetInteractionEnabled(false);
+            primaryInteraction?.SetInteractionEnabled(true);
+            SwitchPresenterForCurrentRoom(true);
+            SetFact(enteredSecondRoomFact, false);
+            SetFact(exitedSecondRoomFact, true);
+            if (!GetBool(enterCardDrawnFact))
+            {
+                runner?.RequestExternalAdvance();
+            }
+        }
+
+        private void ResolveRoomCardEdge()
+        {
+            if (GetBool(exitedSecondRoomFact) && !GetBool(enterCardDrawnFact))
+            {
+                runner?.RequestExternalAdvance();
+            }
+        }
+
+        private void SwitchPresenterForCurrentRoom(bool resetPresentation)
+        {
+            CardDeckPresenter target = inSecondRoom ? secondRoomPresenter : primaryPresenter;
+            if (runner == null || target == null || runner.SetPresenter(target, resetPresentation))
+            {
+                return;
+            }
+            if (presenterSwitchRoutine != null)
+            {
+                StopCoroutine(presenterSwitchRoutine);
+            }
+            presenterSwitchRoutine = StartCoroutine(SwitchPresenterWhenAvailable(resetPresentation));
+        }
+
+        private IEnumerator SwitchPresenterWhenAvailable(bool resetPresentation)
+        {
+            while (runner != null)
+            {
+                CardDeckPresenter target = inSecondRoom ? secondRoomPresenter : primaryPresenter;
+                if (target != null && runner.SetPresenter(target, resetPresentation))
+                {
+                    break;
+                }
+                yield return null;
+            }
+            presenterSwitchRoutine = null;
         }
 
         private IEnumerator ActOneToTwoRoutine()
         {
             FreezeAtmosphere();
             yield return new WaitForSecondsRealtime(3f);
+            if (ambientSource != null)
+            {
+                ambientSource.volume = initialAmbientVolume * 0.35f;
+                if (!ambientSource.isPlaying)
+                {
+                    ambientSource.Play();
+                }
+            }
             storyDoor?.TwistHandleByStory(2f, 45f);
         }
 
@@ -1205,7 +1193,6 @@ namespace DoNotDraw.World
         {
             endingActive = true;
             endingExitArmed = false;
-            ClearFallback();
             StopRearLookRule();
             if (threatFadeRoutine != null)
             {
@@ -1236,7 +1223,8 @@ namespace DoNotDraw.World
             lightSwitchRoot?.SetActive(false);
             secondDoorRoot?.SetActive(false);
             secondDoorCover?.SetActive(true);
-            endingPortraitSilhouette?.SetActive(true);
+            returnZone?.SetTriggerEnabled(false);
+            endingPortraitSilhouette?.SetActive(false);
             SetLightEnabled(lampLight, true);
             SetLightEnabled(secondRoomLampLight, false);
             SetLightEnabled(moonLight, false);
@@ -1312,7 +1300,6 @@ namespace DoNotDraw.World
 
         private void HandleCardDrawStarted(CardDefinition card, int drawIndex)
         {
-            ClearFallback();
             StopRearLookRule();
             if (windowVisionArmed)
             {
@@ -1327,10 +1314,18 @@ namespace DoNotDraw.World
 
         private void HandleCardRevealed(CardDefinition card, GameObject cardObject, int drawIndex)
         {
-            if (!sensoryFrozen && !endingActive)
-            {
-                StartCardDip(0.84f, 0.2f, false);
-            }
+            float minimum = Mathf.Clamp(pendingCardDipMinimum, 0.8f, 0.84f);
+            pendingCardDipMinimum = 0.84f;
+            StartCardDip(minimum, 0.2f, true);
+        }
+
+        private void QueueRuleCardDip(ref int revealCount, bool escalate)
+        {
+            revealCount++;
+            int repeatIndex = Mathf.Max(0, revealCount - 1);
+            pendingCardDipMinimum = escalate
+                ? Mathf.Clamp(0.84f - repeatIndex * 0.01f, 0.8f, 0.84f)
+                : 0.84f;
         }
 
         private void StartCardDip(float minimumMultiplier, float duration, bool playTick)
@@ -1380,7 +1375,7 @@ namespace DoNotDraw.World
                     clockSource.PlayOneShot(clockTickClip, 0.24f);
                 }
             }
-            if (!endingActive && Time.unscaledTime >= nextFloorCreak)
+            if (!endingActive && !lightRuleBlackoutActive && Time.unscaledTime >= nextFloorCreak)
             {
                 nextFloorCreak = Time.unscaledTime + UnityEngine.Random.Range(15f, 20f);
                 if (rearSource != null && floorCreakClip != null && !rearSource.isPlaying)
@@ -1509,6 +1504,13 @@ namespace DoNotDraw.World
             {
                 blackboard.SetBool(fact, value);
             }
+        }
+
+        private bool GetBool(StoryFact fact)
+        {
+            return blackboard != null
+                && fact != null
+                && blackboard.GetValue(fact).BoolValue;
         }
 
         private void SubscribeZone(NarrativeZoneTrigger zone)

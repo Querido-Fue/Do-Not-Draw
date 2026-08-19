@@ -15,7 +15,7 @@ MonoBehaviour:
   stableId: final.card.why_did_you_open_it
   displayName: WHY DID YOU OPEN IT?
   faceText: WHY DID YOU OPEN IT?
-  faceTexture: {fileID: 2800000, guid: 89466e521d4a84a43ae0513fd4302156, type: 3}
+  faceTexture: {fileID: 2800000, guid: 7ced601b642750a4eb512ec2ec8621ef, type: 3}
   faceAccentMaterial: {fileID: 2100000, guid: 9c1bc92ef35503245893d06d3fd174c0, type: 2}
   faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}
   drawSoundOverride: {fileID: 0}

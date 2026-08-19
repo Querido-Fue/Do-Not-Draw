@@ -13,8 +13,9 @@ MonoBehaviour:
   m_Name: FinalFlowSequence
   m_EditorClassIdentifier: Assembly-CSharp::DoNotDraw.Narrative.CardSequenceDefinition
   stableId: final.sequence.flow_authority
-  description: "Authoritative 19-card implementation of DO_NOT_DRAW_\uC5F0\uCD9C\uC0C1\uC138\uAE30\uD68D.txt,
-    including the GOOD/I SAW YOU LOOK branch."
+  description: "Authoritative Prototype A implementation of DO_NOT_DRAW_\uC5F0\uCD9C\uC0C1\uC138\uAE30\uD68D_\uD504\uB85C\uD1A0\uD0C0\uC785A.txt,
+    including repeat-until-compliance rules, the room-card edge case, and the GOOD/I
+    SAW YOU LOOK branch."
   initialDeckSize: 48
   steps:
   - stepId: s01_opening
@@ -34,8 +35,7 @@ MonoBehaviour:
     enterSignals:
     - {fileID: 11400000, guid: 42689f683112d5d4fa353ad9a0c29d5b, type: 2}
     activationSignals: []
-    revealSignals:
-    - {fileID: 11400000, guid: 7972894c1d5c2824e91762bad876e8c8, type: 2}
+    revealSignals: []
     completeSignals: []
     transitions: []
   - stepId: s02_rear_rule
@@ -70,20 +70,30 @@ MonoBehaviour:
     completionDelay: 0.35
     completionConditions:
       matchMode: 0
-      conditions:
-      - fact: {fileID: 11400000, guid: 6b095c37db61dfe4281cb324bab62e1c, type: 2}
-        comparison: 0
-        boolValue: 1
-        intValue: 0
-        floatValue: 0
-        stringValue: 
+      conditions: []
     allowExternalAdvance: 1
     enterSignals: []
     activationSignals: []
     revealSignals:
     - {fileID: 11400000, guid: 55e508160339b8e4595fe463c8061460, type: 2}
     completeSignals: []
-    transitions: []
+    transitions:
+    - finishSequence: 0
+      targetStepId: s04_second_door
+      conditions:
+        matchMode: 0
+        conditions:
+        - fact: {fileID: 11400000, guid: 6b095c37db61dfe4281cb324bab62e1c, type: 2}
+          comparison: 0
+          boolValue: 1
+          intValue: 0
+          floatValue: 0
+          stringValue: 
+    - finishSequence: 0
+      targetStepId: s03_light_rule
+      conditions:
+        matchMode: 0
+        conditions: []
   - stepId: s04_second_door
     editorLabel: s04_second_door
     mode: 0
@@ -96,20 +106,30 @@ MonoBehaviour:
     completionDelay: 0.35
     completionConditions:
       matchMode: 0
-      conditions:
-      - fact: {fileID: 11400000, guid: fdb929377c5a19442b2d03e06f0bceeb, type: 2}
-        comparison: 0
-        boolValue: 1
-        intValue: 0
-        floatValue: 0
-        stringValue: 
+      conditions: []
     allowExternalAdvance: 1
     enterSignals: []
     activationSignals: []
     revealSignals:
     - {fileID: 11400000, guid: 41fb76dd36441df4fa31d1d171a26503, type: 2}
     completeSignals: []
-    transitions: []
+    transitions:
+    - finishSequence: 0
+      targetStepId: s05_do_not_enter
+      conditions:
+        matchMode: 0
+        conditions:
+        - fact: {fileID: 11400000, guid: fdb929377c5a19442b2d03e06f0bceeb, type: 2}
+          comparison: 0
+          boolValue: 1
+          intValue: 0
+          floatValue: 0
+          stringValue: 
+    - finishSequence: 0
+      targetStepId: s04_second_door
+      conditions:
+        matchMode: 0
+        conditions: []
   - stepId: s05_do_not_enter
     editorLabel: s05_do_not_enter
     mode: 0
@@ -122,20 +142,30 @@ MonoBehaviour:
     completionDelay: 0.35
     completionConditions:
       matchMode: 0
-      conditions:
-      - fact: {fileID: 11400000, guid: a117488d22469814aae9d3cec9a70041, type: 2}
-        comparison: 0
-        boolValue: 1
-        intValue: 0
-        floatValue: 0
-        stringValue: 
+      conditions: []
     allowExternalAdvance: 1
     enterSignals: []
     activationSignals: []
     revealSignals:
     - {fileID: 11400000, guid: b8f2cf687c37cc34f87288bad2acf7b8, type: 2}
     completeSignals: []
-    transitions: []
+    transitions:
+    - finishSequence: 0
+      targetStepId: transition_act_one_to_two
+      conditions:
+        matchMode: 0
+        conditions:
+        - fact: {fileID: 11400000, guid: a117488d22469814aae9d3cec9a70041, type: 2}
+          comparison: 0
+          boolValue: 1
+          intValue: 0
+          floatValue: 0
+          stringValue: 
+    - finishSequence: 0
+      targetStepId: s05_do_not_enter
+      conditions:
+        matchMode: 0
+        conditions: []
   - stepId: transition_act_one_to_two
     editorLabel: transition_act_one_to_two
     mode: 2
@@ -155,10 +185,59 @@ MonoBehaviour:
     - {fileID: 11400000, guid: 067180c681e10794ba9a6c4d8d9cf90c, type: 2}
     revealSignals: []
     completeSignals: []
+    transitions:
+    - finishSequence: 0
+      targetStepId: s06_look_at_door
+      conditions:
+        matchMode: 0
+        conditions: []
+  - stepId: s05a_next_room_card
+    editorLabel: s05a_next_room_card
+    mode: 0
+    card: {fileID: 11400000, guid: 6e45d7b8b0961d04c85bada93e36a54b, type: 2}
+    cardVariants: []
+    readyDelay: 0
+    drawAvailability:
+      matchMode: 0
+      conditions: []
+    completionDelay: 0.7
+    completionConditions:
+      matchMode: 0
+      conditions: []
+    allowExternalAdvance: 0
+    enterSignals: []
+    activationSignals: []
+    revealSignals: []
+    completeSignals: []
+    transitions: []
+  - stepId: s05a_wait_reenter
+    editorLabel: s05a_wait_reenter
+    mode: 2
+    card: {fileID: 0}
+    cardVariants: []
+    readyDelay: 0
+    drawAvailability:
+      matchMode: 0
+      conditions: []
+    completionDelay: 0
+    completionConditions:
+      matchMode: 0
+      conditions:
+      - fact: {fileID: 11400000, guid: a117488d22469814aae9d3cec9a70041, type: 2}
+        comparison: 0
+        boolValue: 1
+        intValue: 0
+        floatValue: 0
+        stringValue: 
+    allowExternalAdvance: 0
+    enterSignals: []
+    activationSignals: []
+    revealSignals: []
+    completeSignals: []
     transitions: []
   - stepId: s06_look_at_door
     editorLabel: s06_look_at_door
-    mode: 1
+    mode: 0
     card: {fileID: 11400000, guid: d0d7ff15bb8bceb40b7cecb2e79760da, type: 2}
     cardVariants: []
     readyDelay: 0
@@ -169,13 +248,32 @@ MonoBehaviour:
     completionConditions:
       matchMode: 0
       conditions: []
-    allowExternalAdvance: 0
-    enterSignals: []
-    activationSignals: []
+    allowExternalAdvance: 1
+    enterSignals:
+    - {fileID: 11400000, guid: 9646a88c6afeb6642976886c47310b6d, type: 2}
+    activationSignals:
+    - {fileID: 11400000, guid: d19bad54a7f4dd246919402982bb3ae3, type: 2}
     revealSignals:
     - {fileID: 11400000, guid: 249024bf0c8672c40a7e5cf055181b58, type: 2}
     completeSignals: []
-    transitions: []
+    transitions:
+    - finishSequence: 0
+      targetStepId: s05a_next_room_card
+      conditions:
+        matchMode: 0
+        conditions:
+        - fact: {fileID: 11400000, guid: 45dec7ed2d94c9048a6b2ad7ff7f68d0, type: 2}
+          comparison: 0
+          boolValue: 1
+          intValue: 0
+          floatValue: 0
+          stringValue: 
+        - fact: {fileID: 11400000, guid: c84dc29a254d412479e7eadebc7d345e, type: 2}
+          comparison: 0
+          boolValue: 0
+          intValue: 0
+          floatValue: 0
+          stringValue: 
   - stepId: s07_window
     editorLabel: s07_window
     mode: 0

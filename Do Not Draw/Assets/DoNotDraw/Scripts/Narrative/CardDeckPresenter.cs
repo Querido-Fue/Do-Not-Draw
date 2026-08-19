@@ -37,6 +37,9 @@ namespace DoNotDraw.Narrative
         [SerializeField, Range(0f, 1f)] private float drawVolume = 0.44f;
         [SerializeField, Range(0f, 1f)] private float landingVolume = 0.28f;
 
+        [Header("Voice Narration")]
+        [SerializeField] private bool voiceNarrationEnabled = true;
+
         private readonly List<GameObject> runtimeCards = new List<GameObject>();
         private AudioSource audioSource;
         private Vector3 initialDeckBodyScale;
@@ -55,6 +58,7 @@ namespace DoNotDraw.Narrative
         public int RemainingCards => remainingCards;
         public GameObject LatestCard => runtimeCards.Count > 0 ? runtimeCards[runtimeCards.Count - 1] : null;
         public Transform DisplayAnchor => displayAnchor;
+        public bool VoiceNarrationEnabled => voiceNarrationEnabled;
 
         private void Awake()
         {
@@ -165,7 +169,7 @@ namespace DoNotDraw.Narrative
 
             yield return AnimateRevealEffects(card, faceLabel, definition);
 
-            AudioClip voiceClip = definition?.VoiceClip;
+            AudioClip voiceClip = voiceNarrationEnabled ? definition?.VoiceClip : null;
             if (voiceClip != null)
             {
                 if (definition.VoiceDelay > 0f)
@@ -179,6 +183,11 @@ namespace DoNotDraw.Narrative
 
             IsPresenting = false;
             presentationFinished?.Invoke();
+        }
+
+        public void SetVoiceNarrationEnabled(bool enabled)
+        {
+            voiceNarrationEnabled = enabled;
         }
 
         private Text ApplyDefinition(GameObject card, CardDefinition definition, int drawIndex)

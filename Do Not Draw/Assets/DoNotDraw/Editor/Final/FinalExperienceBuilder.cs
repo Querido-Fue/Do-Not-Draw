@@ -487,7 +487,8 @@ namespace DoNotDraw.Narrative.Editor
             foreach (string signalKey in new[]
                      {
                          "begin_opening", "pulse_opening_card", "rear_look_rule", "arm_light_rule",
-                         "arm_second_door_rule", "arm_enter_rule", "act_one_to_two",
+                         "arm_second_door_rule", "arm_enter_rule", "mark_enter_card_drawn",
+                         "resolve_room_card_edge", "act_one_to_two",
                          "resume_atmosphere", "arm_window_vision", "pause_sensory_beat",
                          "act_two_to_three", "start_hunt_far", "start_hunt_close",
                          "act_three_to_four", "start_turn_test", "schedule_first_door",
@@ -522,18 +523,18 @@ namespace DoNotDraw.Narrative.Editor
                 Card("do_not_draw_next_room_card", "DO NOT DRAW CARD OF NEXT ROOM."),
                 Card("do_not_look_at_door", "DO NOT LOOK AT THE DOOR.", CardTypographyStage.Uneven, faceTextureFileName: "Card5_DoNotLookAtTheDoor.png"),
                 Card("do_not_look_through_window", "DO NOT LOOK THROUGH THE WINDOW.", CardTypographyStage.Uneven, faceTextureFileName: "Card7_DoNotLookAtTheWindow.png"),
-                Card("you_already_did", "YOU ALREADY DID.", CardTypographyStage.Uneven, 1.05f, faceTextureFileName: "Card7_YouAleadyDid.png"),
-                Card("do_not_draw_next_card", "DO NOT DRAW THE NEXT CARD.", CardTypographyStage.Uneven, faceTextureFileName: "Card8_DoNotDrawTheNextCard.png"),
-                Card("do_not_draw_survival", "DO NOT DRAW.", CardTypographyStage.Clean, 0.18f, faceTextureFileName: "Card9_DoNotDraw.png"),
-                Card("do_not_turn_around", "DO NOT TURN AROUND.", CardTypographyStage.Uneven, faceTextureFileName: "Card10_DoNotTurnAround.png"),
-                Card("good", "GOOD.", CardTypographyStage.Uneven, 0.28f, 0f, true),
-                Card("i_saw_you_look", "I SAW YOU LOOK.", CardTypographyStage.Uneven, 0.28f, 0f, true, "Card11_ISawYouLook.png"),
-                Card("do_not_touch_door", "DO NOT TOUCH THE DOOR.", CardTypographyStage.Uneven, faceTextureFileName: "Card12_DoNotTouchTheDoor.png"),
-                Card("why_did_you_open_it", "WHY DID YOU OPEN IT?", CardTypographyStage.Uneven, 1.05f, faceTextureFileName: "Card13_WhyDidYouOpenIt.png"),
-                Card("do_not_blame_cards", "DO NOT BLAME THE CARDS.", CardTypographyStage.Damaged, 0.8f, faceTextureFileName: "Card14_DoNotBlameTheCards.png"),
-                Card("do_not_look_behind_door", "DO NOT LOOK BEHIND YOU.", CardTypographyStage.DoubleExposure, 0.32f, 0.18f, faceTextureFileName: "Card15_DoNotLookBehindYou.png"),
-                Card("you_saw_it", "YOU SAW IT.", CardTypographyStage.DoubleExposure, 1.05f, 0.3f, faceTextureFileName: "Card16_YouSawIt.png"),
-                Card("do_not_leave", "DO NOT LEAVE.", CardTypographyStage.DoubleExposure, 0.32f, 0.18f, faceTextureFileName: "Card17_DoNotLeave.png"),
+                Card("you_already_did", "YOU ALREADY DID.", CardTypographyStage.Uneven, 1.05f, faceTextureFileName: "Card8_YouAleadyDid.png"),
+                Card("do_not_draw_next_card", "DO NOT DRAW THE NEXT CARD.", CardTypographyStage.Uneven, faceTextureFileName: "Card9_DoNotDrawTheNextCard.png"),
+                Card("do_not_draw_survival", "DO NOT DRAW.", CardTypographyStage.Clean, 0.18f, faceTextureFileName: "Card10_DoNotDraw.png"),
+                Card("do_not_turn_around", "DO NOT TURN AROUND.", CardTypographyStage.Uneven, faceTextureFileName: "Card11_DoNotTurnAround.png"),
+                Card("good", "GOOD.", CardTypographyStage.Uneven, 0.28f, 0f, true, "Card12_Good.png"),
+                Card("i_saw_you_look", "I SAW YOU LOOK.", CardTypographyStage.Uneven, 0.28f, 0f, true, "Card12_ISawYouLook.png"),
+                Card("do_not_touch_door", "DO NOT TOUCH THE DOOR.", CardTypographyStage.Uneven, faceTextureFileName: "Card13_DoNotTouchTheDoor.png"),
+                Card("why_did_you_open_it", "WHY DID YOU OPEN IT?", CardTypographyStage.Uneven, 1.05f, faceTextureFileName: "Card14_WhyDidYouOpenIt.png"),
+                Card("do_not_blame_cards", "DO NOT BLAME THE CARDS.", CardTypographyStage.Damaged, 0.8f, faceTextureFileName: "Card15_DoNotBlameTheCards.png"),
+                Card("do_not_look_behind_door", "DO NOT LOOK BEHIND YOU.", CardTypographyStage.DoubleExposure, 0.32f, 0.18f, faceTextureFileName: "Card16_DoNotLookBehindYou.png"),
+                Card("you_saw_it", "YOU SAW IT.", CardTypographyStage.DoubleExposure, 1.05f, 0.3f, faceTextureFileName: "Card17_YouSawIt.png"),
+                Card("do_not_leave", "DO NOT LEAVE.", CardTypographyStage.DoubleExposure, 0.32f, 0.18f, faceTextureFileName: "Card18_DoNotLeave.png"),
                 Card("do_not_draw_again", "DO NOT DRAW AGAIN.", CardTypographyStage.DoubleExposure, 0.4f, 0.25f)
             };
         }
@@ -609,7 +610,6 @@ namespace DoNotDraw.Narrative.Editor
 
             StepSpec opening = Step("s01_opening", c["do_not_draw_opening"], 0.7f);
             opening.EnterSignals.Add(s["begin_opening"]);
-            opening.RevealSignals.Add(s["pulse_opening_card"]);
             steps.Add(opening);
 
             StepSpec rear = Step("s02_rear_rule", c["do_not_look_behind_early"], 0.75f);
@@ -618,27 +618,44 @@ namespace DoNotDraw.Narrative.Editor
 
             StepSpec light = Step("s03_light_rule", c["do_not_turn_off_light"], 0.35f, true);
             light.RevealSignals.Add(s["arm_light_rule"]);
-            light.CompletionConditions.Add(Condition(f["light_switch_used"]));
+            light.Transitions.Add(Transition("s04_second_door", Condition(f["light_switch_used"])));
+            light.Transitions.Add(Transition("s03_light_rule"));
             steps.Add(light);
 
             StepSpec door = Step("s04_second_door", c["do_not_open_second_door"], 0.35f, true);
             door.RevealSignals.Add(s["arm_second_door_rule"]);
-            door.CompletionConditions.Add(Condition(f["second_door_opened"]));
+            door.Transitions.Add(Transition("s05_do_not_enter", Condition(f["second_door_opened"])));
+            door.Transitions.Add(Transition("s04_second_door"));
             steps.Add(door);
 
             StepSpec enter = Step("s05_do_not_enter", c["do_not_enter"], 0.35f, true);
             enter.RevealSignals.Add(s["arm_enter_rule"]);
-            enter.CompletionConditions.Add(Condition(f["entered_second_room"]));
+            enter.Transitions.Add(Transition(
+                "transition_act_one_to_two",
+                Condition(f["entered_second_room"])));
+            enter.Transitions.Add(Transition("s05_do_not_enter"));
             steps.Add(enter);
 
             StepSpec actOneTransition = EventStep("transition_act_one_to_two");
             actOneTransition.ActivationSignals.Add(s["act_one_to_two"]);
             actOneTransition.CompletionDelay = 5.5f;
+            actOneTransition.Transitions.Add(Transition("s06_look_at_door"));
             steps.Add(actOneTransition);
 
-            StepSpec lookDoor = Step("s06_look_at_door", c["do_not_look_at_door"], 0.8f);
-            lookDoor.Mode = CardSequenceStepMode.AutomaticDraw;
+            steps.Add(Step("s05a_next_room_card", c["do_not_draw_next_room_card"], 0.7f));
+
+            StepSpec waitReenter = EventStep("s05a_wait_reenter");
+            waitReenter.CompletionConditions.Add(Condition(f["entered_second_room"]));
+            steps.Add(waitReenter);
+
+            StepSpec lookDoor = Step("s06_look_at_door", c["do_not_look_at_door"], 0.8f, true);
+            lookDoor.EnterSignals.Add(s["resolve_room_card_edge"]);
+            lookDoor.ActivationSignals.Add(s["mark_enter_card_drawn"]);
             lookDoor.RevealSignals.Add(s["resume_atmosphere"]);
+            lookDoor.Transitions.Add(Transition(
+                "s05a_next_room_card",
+                Condition(f["exited_second_room"]),
+                Condition(f["enter_card_drawn"], false)));
             steps.Add(lookDoor);
 
             StepSpec window = Step("s07_window", c["do_not_look_through_window"], 0.35f, true);
@@ -721,7 +738,7 @@ namespace DoNotDraw.Narrative.Editor
                 $"{SequenceRoot}/FinalFlowSequence.asset");
             SerializedObject serialized = new SerializedObject(sequence);
             Set(serialized, "stableId", "final.sequence.flow_authority");
-            Set(serialized, "description", "Authoritative 19-card implementation of DO_NOT_DRAW_연출상세기획.txt, including the GOOD/I SAW YOU LOOK branch.");
+            Set(serialized, "description", "Authoritative Prototype A implementation of DO_NOT_DRAW_연출상세기획_프로토타입A.txt, including repeat-until-compliance rules, the room-card edge case, and the GOOD/I SAW YOU LOOK branch.");
             Set(serialized, "initialDeckSize", 48);
             SerializedProperty stepArray = serialized.FindProperty("steps");
             stepArray.arraySize = steps.Count;
@@ -998,6 +1015,10 @@ namespace DoNotDraw.Narrative.Editor
             StoryBlackboard blackboard = primaryDeckObject.GetComponent<StoryBlackboard>();
             CardDeckPresenter primaryPresenter = primaryDeckObject.GetComponent<CardDeckPresenter>();
             CardDeckInteraction primaryInteraction = primaryDeckObject.GetComponent<CardDeckInteraction>();
+            primaryPresenter.SetVoiceNarrationEnabled(false);
+            room.SecondPresenter.SetVoiceNarrationEnabled(false);
+            EditorUtility.SetDirty(primaryPresenter);
+            EditorUtility.SetDirty(room.SecondPresenter);
             ConfigureDeckInteraction(primaryDeckObject, primaryInteraction, runner, true);
             ConfigureDeckInteraction(room.SecondInteraction.gameObject, room.SecondInteraction, runner, false);
             ConfigureInteractionGlow(primaryInteraction, interactionGlow);
@@ -1074,6 +1095,7 @@ namespace DoNotDraw.Narrative.Editor
                 transitionSource,
                 windSource,
                 oneShotSource,
+                switchClip,
                 rearWarning,
                 breathing,
                 drone,
@@ -1481,6 +1503,7 @@ namespace DoNotDraw.Narrative.Editor
             AudioSource transitionSource,
             AudioSource windSource,
             AudioSource oneShotSource,
+            AudioClip fluorescentPower,
             AudioClip rearImpact,
             AudioClip breathing,
             AudioClip drone,
@@ -1495,7 +1518,6 @@ namespace DoNotDraw.Narrative.Editor
             Set(serialized, "playerCamera", view != null ? view.GetComponent<Camera>() : null);
             Set(serialized, "movementController", movement);
             Set(serialized, "playerStartMarker", room.PlayerStartMarker);
-            Set(serialized, "secondRoomPlayerMarker", room.SecondRoomPlayerMarker);
             Set(serialized, "primaryPresenter", primaryPresenter);
             Set(serialized, "primaryInteraction", primaryInteraction);
             Set(serialized, "secondRoomPresenter", room.SecondPresenter);
@@ -1519,6 +1541,7 @@ namespace DoNotDraw.Narrative.Editor
             Set(serialized, "secondDoor", room.SecondDoor);
             Set(serialized, "storyDoor", room.StoryDoor);
             Set(serialized, "secondRoomZone", room.SecondRoomZone);
+            Set(serialized, "returnZone", room.ReturnZone);
             Set(serialized, "endingZone", room.EndingZone);
             Set(serialized, "windowGazeTarget", room.WindowGazeTarget);
             Set(serialized, "threatSilhouette", room.Threat);
@@ -1537,6 +1560,7 @@ namespace DoNotDraw.Narrative.Editor
             Set(serialized, "transitionSource", transitionSource);
             Set(serialized, "windSource", windSource);
             Set(serialized, "oneShotSource", oneShotSource);
+            Set(serialized, "fluorescentPowerClip", fluorescentPower);
             Set(serialized, "clockTickClip", cardTap);
             Set(serialized, "floorCreakClip", floorCreak);
             Set(serialized, "rearImpactClip", rearImpact);
@@ -1544,12 +1568,14 @@ namespace DoNotDraw.Narrative.Editor
             Set(serialized, "threatDroneClip", drone);
             Set(serialized, "whiteNoiseClip", drone);
             Set(serialized, "windClip", breathing);
-            Set(serialized, "lampTickClip", cardTap);
+            Set(serialized, "lampTickClip", fluorescentPower);
 
             Dictionary<string, StoryFact> facts = assets.Facts;
             Set(serialized, "lightSwitchUsedFact", facts["light_switch_used"]);
             Set(serialized, "secondDoorOpenedFact", facts["second_door_opened"]);
             Set(serialized, "enteredSecondRoomFact", facts["entered_second_room"]);
+            Set(serialized, "enterCardDrawnFact", facts["enter_card_drawn"]);
+            Set(serialized, "exitedSecondRoomFact", facts["exited_second_room"]);
             Set(serialized, "windowVisionSeenFact", facts["window_silhouette_seen"]);
             Set(serialized, "turnedAroundFact", facts["turned_around"]);
             Set(serialized, "turnTestResolvedFact", facts["turn_test_resolved"]);
@@ -1563,6 +1589,8 @@ namespace DoNotDraw.Narrative.Editor
                 ("arm_light_rule", ClosedRoomCue.ArmLightRule),
                 ("arm_second_door_rule", ClosedRoomCue.ArmSecondDoorRule),
                 ("arm_enter_rule", ClosedRoomCue.ArmEnterRule),
+                ("mark_enter_card_drawn", ClosedRoomCue.MarkEnterCardDrawn),
+                ("resolve_room_card_edge", ClosedRoomCue.ResolveRoomCardEdge),
                 ("act_one_to_two", ClosedRoomCue.BeginActOneToTwo),
                 ("resume_atmosphere", ClosedRoomCue.ResumeAtmosphere),
                 ("arm_window_vision", ClosedRoomCue.ArmWindowVision),
