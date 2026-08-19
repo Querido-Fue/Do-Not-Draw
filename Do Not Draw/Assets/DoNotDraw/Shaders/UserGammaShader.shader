@@ -49,7 +49,8 @@ Shader "DoNotDraw/UserGamma"
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
                 float3 c = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_linear_clamp, input.texcoord).rgb;
-                c = PositivePow(max(c, 0.0), 1.0 / max(_UserGamma, 0.0001));
+                float g = _UserGamma <= 0.0 ? 1.0 : _UserGamma;
+                c = PositivePow(max(c, 0.0), 1.0 / g);
                 return half4(c, 1.0);
             }
             ENDHLSL

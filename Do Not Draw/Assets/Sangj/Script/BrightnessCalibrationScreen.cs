@@ -1,12 +1,13 @@
+using System;
 using System.Collections;
 using TMPro;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
-namespace Pandemonium.Settings
-{
-    public class BrightnessCalibrationScreen : MonoBehaviour
+public class BrightnessCalibrationScreen : MonoBehaviour
     {
         [Header("Markers")]
         [SerializeField] Graphic markerHidden;
@@ -26,15 +27,25 @@ namespace Pandemonium.Settings
         [SerializeField] Button cancelButton;
         [SerializeField] Button resetButton;
 
-        [Header("Flow")]
-        [SerializeField] string returnSceneName = "MainMenu";
+        [Header("Behaviour")]
+        [SerializeField] bool closeOnEscape = true;
+        [SerializeField] bool pauseWhileOpen = false;
+
+        [Header("Popup")]
+        [Tooltip("팝업이 열려 있는 동안 숨길 오브젝트. 메인 메뉴 캔버스 등.")]
+        [SerializeField] GameObject[] hideWhileOpen;
+
+        bool[] hiddenPrevState;
+
+    /// <summary>확정(true) 또는 취소(false)로 닫힐 때 발생.</summary>
+    public event Action<bool> Closed;
 
         float entryGamma;
+        bool confirmed;
+        float previousTimeScale = 1f;
 
         void Awake()
         {
-            entryGamma = DisplaySettings.Gamma;
-
             SetMarker(markerHidden, hiddenValue);
             SetMarker(markerThreshold, thresholdValue);
             SetMarker(markerVisible, visibleValue);
@@ -42,8 +53,6 @@ namespace Pandemonium.Settings
             slider.minValue = 0f;
             slider.maxValue = 1f;
             slider.wholeNumbers = false;
-            slider.SetValueWithoutNotify(DisplaySettings.GammaToSlider(entryGamma));
-            UpdateLabel(entryGamma);
 
             slider.onValueChanged.AddListener(OnSliderChanged);
             confirmButton.onClick.AddListener(OnConfirm);
@@ -59,6 +68,61 @@ namespace Pandemonium.Settings
             if (resetButton != null) resetButton.onClick.RemoveListener(OnReset);
         }
 
+        /// <summary>외부에서 팝업을 여는 진입점.</summary>
+        public void Open() => gameObject.SetActive(true);
+
+        void OnEnable()
+        {
+            // 열릴 때마다 현재 값을 다시 기준점으로 잡는다.
+            confirmed = false;
+            entryGamma = DisplaySettings.Gamma;
+
+            slider.SetValueWithoutNotify(DisplaySettings.GammaToSlider(entryGamma));
+            UpdateLabel(entryGamma);
+
+            if (pauseWhileOpen)
+            {
+                previousTimeScale = Time.timeScale;
+                Time.timeScale = 0f;
+            }
+
+            hiddenPrevState = new bool[hideWhileOpen.Length];
+            for (int i = 0; i < hideWhileOpen.Length; i++)
+            {
+                if (hideWhileOpen[i] == null) continue;
+                hiddenPrevState[i] = hideWhileOpen[i].activeSelf;
+                hideWhileOpen[i].SetActive(false);
+            }
+        }
+
+        void OnDisable()
+        {
+            // 버튼을 거치지 않고 꺼진 경우에도 미리보기 값이 남지 않도록 되돌린다.
+            if (!confirmed) DisplaySettings.SetGamma(entryGamma);
+
+            if (pauseWhileOpen) Time.timeScale = previousTimeScale;
+
+            if (hiddenPrevState != null)
+            {
+                for (int i = 0; i < hideWhileOpen.Length && i < hiddenPrevState.Length; i++)
+                    if (hideWhileOpen[i] != null) hideWhileOpen[i].SetActive(hiddenPrevState[i]);
+            }
+        }
+
+        void Update()
+        {
+            if (closeOnEscape && EscapePressed()) OnCancel();
+        }
+
+        static bool EscapePressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            return Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame;
+#else
+    return Input.GetKeyDown(KeyCode.Escape);
+#endif
+        }
+
         void OnSliderChanged(float t)
         {
             float g = DisplaySettings.SliderToGamma(t);
@@ -68,14 +132,17 @@ namespace Pandemonium.Settings
 
         void OnConfirm()
         {
+            confirmed = true;
             DisplaySettings.Save();
-            SceneManager.LoadScene(returnSceneName);
+            gameObject.SetActive(false);
+            Closed?.Invoke(true);
         }
 
         void OnCancel()
         {
-            DisplaySettings.SetGamma(entryGamma);   // 저장하지 않고 진입 시점 값으로 복구
-            SceneManager.LoadScene(returnSceneName);
+            DisplaySettings.SetGamma(entryGamma);
+            gameObject.SetActive(false);    // confirmed == false → OnDisable에서 한 번 더 복구(무해)
+            Closed?.Invoke(false);
         }
 
         void OnReset()
@@ -106,7 +173,6 @@ namespace Pandemonium.Settings
 #endif
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-        // 검증용. 화면에 실제로 찍힌 마커 픽셀값을 로그로 출력합니다.
         [ContextMenu("Dump marker pixels")]
         void Dump()
         {
@@ -119,9 +185,8 @@ namespace Pandemonium.Settings
             yield return new WaitForEndOfFrame();
 
             var tex = ScreenCapture.CaptureScreenshotAsTexture();
-            var targets = new[] { markerHidden, markerThreshold, markerVisible };
 
-            foreach (var g in targets)
+            foreach (var g in new[] { markerHidden, markerThreshold, markerVisible })
             {
                 if (g == null) continue;
 
@@ -140,4 +205,3 @@ namespace Pandemonium.Settings
         }
 #endif
     }
-}
