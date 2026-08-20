@@ -3310,6 +3310,8 @@ MonoBehaviour:
   m_Script: {fileID: 2048614685}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DoNotDraw.Narrative.CardFaceRendererBinding
+  targetRenderer: {fileID: 318435334}
+  cardDefinition: {fileID: 0}
 --- !u!1 &330001657
 GameObject:
   m_ObjectHideFlags: 0
@@ -4301,6 +4303,7 @@ Transform:
   - {fileID: 1769637485}
   - {fileID: 441479110}
   - {fileID: 1782835264}
+  - {fileID: 1983726691}
   m_Father: {fileID: 2100917275}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &441479106
@@ -9891,7 +9894,7 @@ MonoBehaviour:
   maximumDistance: 8
   gazeThreshold: 0.955
   lookAwayGracePeriod: 0.45
-  maximumAlpha: 0.55
+  maximumAlpha: 0.4
   fadeInDuration: 2.6
   holdDuration: 1.15
   fadeOutDuration: 3.1
@@ -9899,6 +9902,11 @@ MonoBehaviour:
   maximumCooldown: 8.5
   horizontalOffsetRange: {x: -0.1, y: 0.1}
   verticalOffsetRange: {x: -0.08, y: 0.08}
+  scriptedLungeDistance: 0.24
+  scriptedLungeDuration: 0.12
+  scriptedHoldDuration: 0.24
+  scriptedFadeDuration: 0.46
+  scriptedScaleMultiplier: 1.1
 --- !u!1 &865471428
 GameObject:
   m_ObjectHideFlags: 0
@@ -18255,6 +18263,9 @@ MonoBehaviour:
   secondDoorCover: {fileID: 630310818}
   windowVision: {fileID: 341452227}
   endingPortraitSilhouette: {fileID: 1474703202}
+  firstRoomWindowWatcher: {fileID: 861133568}
+  secondRoomWindowWatcher: {fileID: 1913424138}
+  endingFaceInfestation: {fileID: 1983726690}
   lampLight: {fileID: 969923932}
   secondRoomLampLight: {fileID: 1224880158}
   ceilingSurfaceRenderers:
@@ -18295,6 +18306,9 @@ MonoBehaviour:
   huntFlickerAmplitude: 0.022
   exitPressureDelay: 5.5
   exitMovementThreshold: 0.08
+  finalDoorLightInterval: 1
+  finalDoorLightPulseDuration: 0.1
+  finalDoorFaceRevealDuration: 2
   ambientSource: {fileID: 971032122}
   clockSource: {fileID: 1675061537}
   rearSource: {fileID: 1675061536}
@@ -18316,6 +18330,8 @@ MonoBehaviour:
   whiteNoiseClip: {fileID: 8300000, guid: f054a03dd16ab684b9c91c1687a947a6, type: 3}
   windClip: {fileID: 8300000, guid: 3d60059a54b669b4ea0929c9d752701f, type: 3}
   lampTickClip: {fileID: 8300000, guid: e3df2f2bd037f8d4b8fa19724e99d65a, type: 3}
+  windowFaceLungeClip: {fileID: 8300000, guid: 85d3380f79a0f38488bf440d7a1f4c95, type: 3}
+  finalDoorInfestationClip: {fileID: 8300000, guid: f3b3a694eb72fd546a583c030afc60a1, type: 3}
   lightSwitchUsedFact: {fileID: 11400000, guid: 6b095c37db61dfe4281cb324bab62e1c, type: 2}
   secondDoorOpenedFact: {fileID: 11400000, guid: fdb929377c5a19442b2d03e06f0bceeb, type: 2}
   enteredSecondRoomFact: {fileID: 11400000, guid: a117488d22469814aae9d3cec9a70041, type: 2}
@@ -21378,7 +21394,7 @@ MonoBehaviour:
   maximumDistance: 8
   gazeThreshold: 0.955
   lookAwayGracePeriod: 0.45
-  maximumAlpha: 0.55
+  maximumAlpha: 0.4
   fadeInDuration: 2.6
   holdDuration: 1.15
   fadeOutDuration: 3.1
@@ -21386,6 +21402,11 @@ MonoBehaviour:
   maximumCooldown: 8.5
   horizontalOffsetRange: {x: -0.1, y: 0.1}
   verticalOffsetRange: {x: -0.08, y: 0.08}
+  scriptedLungeDistance: 0.24
+  scriptedLungeDuration: 0.12
+  scriptedHoldDuration: 0.24
+  scriptedFadeDuration: 0.46
+  scriptedScaleMultiplier: 1.1
 --- !u!1 &1922651326
 GameObject:
   m_ObjectHideFlags: 0
@@ -21954,6 +21975,64 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1976070957}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1983726689
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1983726691}
+  - component: {fileID: 1983726690}
+  m_Layer: 0
+  m_Name: Ending Face Infestation
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1983726690
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1983726689}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 54ef8c1444260e44494381becb00cd10, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::DoNotDraw.World.RoomFaceInfestation
+  faceMesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
+  faceMaterial: {fileID: 2100000, guid: ea4a41592508fb840997ab0114a8b91a, type: 2}
+  interiorSize: {x: 5.76, y: 2.82, z: 4.66}
+  surfaceInset: 0.045
+  longWallColumns: 5
+  shortWallColumns: 4
+  wallRows: 2
+  ceilingColumns: 4
+  ceilingRows: 3
+  revealDuration: 2
+  faceHeightRange: {x: 0.68, y: 1.12}
+  finalAlpha: 0.84
+  apparitionIntensity: 0.72
+  layoutSeed: 8713
+--- !u!4 &1983726691
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1983726689}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 1.45, z: 5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 438376156}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1993175477
 GameObject:
   m_ObjectHideFlags: 0

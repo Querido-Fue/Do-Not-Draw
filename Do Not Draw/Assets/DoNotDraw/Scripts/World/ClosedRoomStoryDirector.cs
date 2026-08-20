@@ -90,6 +90,11 @@ namespace DoNotDraw.World
         [SerializeField] private GameObject windowVision;
         [SerializeField] private GameObject endingPortraitSilhouette;
 
+        [Header("Scripted Apparitions")]
+        [SerializeField] private ImpossibleWindowWatcher firstRoomWindowWatcher;
+        [SerializeField] private ImpossibleWindowWatcher secondRoomWindowWatcher;
+        [SerializeField] private RoomFaceInfestation endingFaceInfestation;
+
         [Header("Lights")]
         [SerializeField] private Light lampLight;
         [SerializeField] private Light secondRoomLampLight;
@@ -139,6 +144,9 @@ namespace DoNotDraw.World
         [SerializeField, Range(0f, 0.05f)] private float huntFlickerAmplitude = 0.022f;
         [SerializeField, Range(5f, 6f)] private float exitPressureDelay = 5.5f;
         [SerializeField, Min(0.02f)] private float exitMovementThreshold = 0.08f;
+        [SerializeField, Min(0.1f)] private float finalDoorLightInterval = 1f;
+        [SerializeField, Range(0.02f, 0.25f)] private float finalDoorLightPulseDuration = 0.1f;
+        [SerializeField, Min(0.1f)] private float finalDoorFaceRevealDuration = 2f;
 
         [Header("Audio Sources")]
         [SerializeField] private AudioSource ambientSource;
@@ -164,6 +172,8 @@ namespace DoNotDraw.World
         [SerializeField] private AudioClip whiteNoiseClip;
         [SerializeField] private AudioClip windClip;
         [SerializeField] private AudioClip lampTickClip;
+        [SerializeField] private AudioClip windowFaceLungeClip;
+        [SerializeField] private AudioClip finalDoorInfestationClip;
 
         [Header("Facts")]
         [SerializeField] private StoryFact lightSwitchUsedFact;
@@ -250,6 +260,8 @@ namespace DoNotDraw.World
         private bool lightRuleArmed;
         private bool lightRuleBlackoutActive;
         private bool ambientLightingCached;
+        private bool finalDoorLightingOverride;
+        private bool finalDoorLightPulseOn;
         private int lightRuleRevealCount;
         private int secondDoorRuleRevealCount;
         private int enterRuleRevealCount;
@@ -263,6 +275,8 @@ namespace DoNotDraw.World
         private Coroutine presenterSwitchRoutine;
         private Coroutine ambientDarkeningRoutine;
         private Coroutine exitWindPulseRoutine;
+        private Coroutine windowCardScareRoutine;
+        private Coroutine finalDoorHorrorRoutine;
 
         private CardDeckInteraction ActiveDeckInteraction => inSecondRoom
             ? secondRoomInteraction
@@ -356,6 +370,12 @@ namespace DoNotDraw.World
 
         private void OnDisable()
         {
+            if (windowCardScareRoutine != null)
+            {
+                StopCoroutine(windowCardScareRoutine);
+                windowCardScareRoutine = null;
+            }
+            StopFinalDoorHorror(true);
             if (perceptionOverlay != null)
             {
                 perceptionOverlay.ClimaxHardCut -= HandleClimaxHardCut;
@@ -427,6 +447,8 @@ namespace DoNotDraw.World
             climaxStrobeMultiplier = 1f;
             climaxSilenceUntil = 0f;
             exitFovImpulse = 0f;
+            finalDoorLightingOverride = false;
+            finalDoorLightPulseOn = false;
             if (exitWindPulseRoutine != null)
             {
                 StopCoroutine(exitWindPulseRoutine);
@@ -495,6 +517,12 @@ namespace DoNotDraw.World
 
         private void ResetSceneState()
         {
+            if (windowCardScareRoutine != null)
+            {
+                StopCoroutine(windowCardScareRoutine);
+                windowCardScareRoutine = null;
+            }
+            StopFinalDoorHorror(true);
             inSecondRoom = false;
             endingActive = false;
             endingExitArmed = false;
@@ -918,6 +946,27 @@ namespace DoNotDraw.World
             RenderSettings.reflectionIntensity = initialReflectionIntensity;
         }
 
+        private void SetAmbientLightingMultiplier(float multiplier)
+        {
+            if (!ambientLightingCached)
+            {
+                return;
+            }
+
+            if (ambientDarkeningRoutine != null)
+            {
+                StopCoroutine(ambientDarkeningRoutine);
+                ambientDarkeningRoutine = null;
+            }
+
+            multiplier = Mathf.Clamp01(multiplier);
+            RenderSettings.ambientLight = ScaleRgb(initialAmbientLight, multiplier);
+            RenderSettings.ambientSkyColor = ScaleRgb(initialAmbientSkyColor, multiplier);
+            RenderSettings.ambientEquatorColor = ScaleRgb(initialAmbientEquatorColor, multiplier);
+            RenderSettings.ambientGroundColor = ScaleRgb(initialAmbientGroundColor, multiplier);
+            RenderSettings.reflectionIntensity = initialReflectionIntensity * multiplier;
+        }
+
         private static Color ScaleRgb(Color color, float multiplier)
         {
             return new Color(
@@ -1134,9 +1183,35 @@ namespace DoNotDraw.World
 
         private void ArmWindowVision()
         {
+            if (windowCardScareRoutine != null)
+            {
+                StopCoroutine(windowCardScareRoutine);
+                windowCardScareRoutine = null;
+            }
             windowGazeElapsed = 0f;
-            windowVisionArmed = true;
+            windowVisionArmed = false;
             windowVision?.SetActive(false);
+
+            ImpossibleWindowWatcher watcher = inSecondRoom
+                ? secondRoomWindowWatcher
+                : firstRoomWindowWatcher;
+            if (watcher == null)
+            {
+                windowVisionArmed = true;
+                return;
+            }
+
+            watcher.TriggerScriptedScare();
+            PlayOneShot(windowFaceLungeClip, 0.86f);
+            windowCardScareRoutine = StartCoroutine(CompleteWindowCardScareRoutine());
+        }
+
+        private IEnumerator CompleteWindowCardScareRoutine()
+        {
+            yield return new WaitForSecondsRealtime(0.86f);
+            SetFact(windowVisionSeenFact, true);
+            runner?.RequestExternalAdvance();
+            windowCardScareRoutine = null;
         }
 
         private void UpdateWindowGaze()
@@ -1495,6 +1570,7 @@ namespace DoNotDraw.World
         private void OpenExit()
         {
             endingExitArmed = true;
+            StartFinalDoorHorror();
             storyDoor?.OpenByStory(false);
             SetLightEnabled(exitLight, true);
             endingZone?.SetTriggerEnabled(true);
@@ -1506,6 +1582,88 @@ namespace DoNotDraw.World
                 windSource.Play();
             }
             ArmExitPressure();
+        }
+
+        private void StartFinalDoorHorror()
+        {
+            if (finalDoorHorrorRoutine != null)
+            {
+                StopCoroutine(finalDoorHorrorRoutine);
+            }
+
+            finalDoorLightingOverride = true;
+            finalDoorLightPulseOn = false;
+            ApplyFinalDoorLightState(false);
+            endingFaceInfestation?.BeginReveal(finalDoorFaceRevealDuration);
+            PlayOneShot(finalDoorInfestationClip, 0.9f);
+            finalDoorHorrorRoutine = StartCoroutine(FinalDoorHorrorRoutine());
+        }
+
+        private IEnumerator FinalDoorHorrorRoutine()
+        {
+            float nextPulseAt = Time.unscaledTime + finalDoorLightInterval;
+            float pulseEndsAt = 0f;
+            while (endingExitArmed && !endingActive)
+            {
+                float now = Time.unscaledTime;
+                if (!finalDoorLightPulseOn && now >= nextPulseAt)
+                {
+                    finalDoorLightPulseOn = true;
+                    pulseEndsAt = now + finalDoorLightPulseDuration;
+                    nextPulseAt += finalDoorLightInterval;
+                    ApplyFinalDoorLightState(true);
+                }
+                else if (finalDoorLightPulseOn && now >= pulseEndsAt)
+                {
+                    finalDoorLightPulseOn = false;
+                    ApplyFinalDoorLightState(false);
+                }
+
+                yield return null;
+            }
+
+            finalDoorLightPulseOn = false;
+            if (finalDoorLightingOverride)
+            {
+                ApplyFinalDoorLightState(false);
+            }
+            finalDoorHorrorRoutine = null;
+        }
+
+        private void StopFinalDoorHorror(bool clearFaces)
+        {
+            if (finalDoorHorrorRoutine != null)
+            {
+                StopCoroutine(finalDoorHorrorRoutine);
+                finalDoorHorrorRoutine = null;
+            }
+
+            finalDoorLightingOverride = false;
+            finalDoorLightPulseOn = false;
+            if (clearFaces)
+            {
+                endingFaceInfestation?.ClearImmediately();
+            }
+        }
+
+        private void ApplyFinalDoorLightState(bool lightsOn)
+        {
+            SetLightEnabled(lampLight, lightsOn);
+            SetLightEnabled(secondRoomLampLight, lightsOn);
+            if (lightsOn)
+            {
+                if (lampLight != null)
+                {
+                    lampLight.intensity = initialLampIntensity;
+                }
+                if (secondRoomLampLight != null)
+                {
+                    secondRoomLampLight.intensity = initialSecondLampIntensity;
+                }
+            }
+
+            SetCeilingEmissionMultiplier(lightsOn ? 1f : 0f);
+            SetAmbientLightingMultiplier(lightsOn ? 1f : 0f);
         }
 
         private void ArmExitPressure()
@@ -1641,8 +1799,11 @@ namespace DoNotDraw.World
             }
 
             perceptionOverlay?.StopAllEffects(0.12f);
-            SetCeilingEmissionMultiplier(1f);
-            StartLightFade(exitPrePressurePrimaryLight, exitPrePressureSecondLight, 0.3f);
+            if (!finalDoorLightingOverride)
+            {
+                SetCeilingEmissionMultiplier(1f);
+                StartLightFade(exitPrePressurePrimaryLight, exitPrePressureSecondLight, 0.3f);
+            }
             if (huntActive || (threatSilhouette != null && threatSilhouette.gameObject.activeSelf))
             {
                 DismissThreat(0.35f);
@@ -1757,6 +1918,7 @@ namespace DoNotDraw.World
         private void PrepareEndingReset()
         {
             endingActive = true;
+            StopFinalDoorHorror(false);
             CancelExitPressure(false);
             perceptionOverlay?.StopAllEffects(0f);
             if (lightFadeRoutine != null)
@@ -1809,6 +1971,7 @@ namespace DoNotDraw.World
             secondDoorCover?.SetActive(true);
             returnZone?.SetTriggerEnabled(false);
             endingPortraitSilhouette?.SetActive(false);
+            RestoreAmbientLighting();
             SetLightEnabled(lampLight, true);
             SetLightEnabled(secondRoomLampLight, false);
             SetCeilingEmissionMultiplier(1f);
@@ -1992,6 +2155,22 @@ namespace DoNotDraw.World
 
         private void UpdateLampFlicker()
         {
+            if (finalDoorLightingOverride)
+            {
+                if (finalDoorLightPulseOn)
+                {
+                    if (lampLight != null && lampLight.enabled)
+                    {
+                        lampLight.intensity = initialLampIntensity;
+                    }
+                    if (secondRoomLampLight != null && secondRoomLampLight.enabled)
+                    {
+                        secondRoomLampLight.intensity = initialSecondLampIntensity;
+                    }
+                }
+                return;
+            }
+
             float flicker = 1f;
             if (!microFlickerPaused && !sensoryFrozen)
             {
@@ -2269,6 +2448,9 @@ namespace DoNotDraw.World
             huntFlickerAmplitude = Mathf.Clamp(huntFlickerAmplitude, 0f, 0.05f);
             exitPressureDelay = Mathf.Clamp(exitPressureDelay, 5f, 6f);
             exitMovementThreshold = Mathf.Max(0.02f, exitMovementThreshold);
+            finalDoorLightInterval = Mathf.Max(0.1f, finalDoorLightInterval);
+            finalDoorLightPulseDuration = Mathf.Clamp(finalDoorLightPulseDuration, 0.02f, 0.25f);
+            finalDoorFaceRevealDuration = Mathf.Max(0.1f, finalDoorFaceRevealDuration);
             switchResidualDarkeningDuration = Mathf.Max(0.05f, switchResidualDarkeningDuration);
             switchResidualLightMultiplier = Mathf.Clamp01(switchResidualLightMultiplier);
             threatApproachDuration = Mathf.Max(1f, threatApproachDuration);

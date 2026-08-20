@@ -18,7 +18,7 @@ namespace DoNotDraw.World
         [SerializeField, Min(0f)] private float lookAwayGracePeriod = 0.45f;
 
         [Header("Appearance")]
-        [SerializeField, Range(0f, 1f)] private float maximumAlpha = 0.55f;
+        [SerializeField, Range(0f, 1f)] private float maximumAlpha = 0.4f;
         [SerializeField, Min(0.1f)] private float fadeInDuration = 2.6f;
         [SerializeField, Min(0f)] private float holdDuration = 1.15f;
         [SerializeField, Min(0.1f)] private float fadeOutDuration = 3.1f;
@@ -26,6 +26,13 @@ namespace DoNotDraw.World
         [SerializeField, Min(0f)] private float maximumCooldown = 8.5f;
         [SerializeField] private Vector2 horizontalOffsetRange = new Vector2(-0.1f, 0.1f);
         [SerializeField] private Vector2 verticalOffsetRange = new Vector2(-0.08f, 0.08f);
+
+        [Header("Scripted Scare")]
+        [SerializeField, Min(0f)] private float scriptedLungeDistance = 0.24f;
+        [SerializeField, Min(0.01f)] private float scriptedLungeDuration = 0.12f;
+        [SerializeField, Min(0f)] private float scriptedHoldDuration = 0.24f;
+        [SerializeField, Min(0.01f)] private float scriptedFadeDuration = 0.46f;
+        [SerializeField, Range(1f, 1.4f)] private float scriptedScaleMultiplier = 1.1f;
 
         private MaterialPropertyBlock propertyBlock;
         private AppearanceState state;
@@ -38,13 +45,15 @@ namespace DoNotDraw.World
         private float stateElapsed;
         private float lookAwayElapsed;
         private float nextAppearanceTime;
+        private Vector3 scriptedLocalOffset;
 
         private enum AppearanceState
         {
             Hidden,
             FadingIn,
             Holding,
-            FadingOut
+            FadingOut,
+            ScriptedScare
         }
 
         private void Awake()
@@ -126,9 +135,48 @@ namespace DoNotDraw.World
                     }
 
                     break;
+
+                case AppearanceState.ScriptedScare:
+                    UpdateScriptedScare(Time.unscaledDeltaTime);
+                    break;
             }
 
-            UpdateSubtleMotion();
+            if (state != AppearanceState.ScriptedScare)
+            {
+                UpdateSubtleMotion();
+            }
+        }
+
+        public void TriggerScriptedScare()
+        {
+            EnsurePropertyBlock();
+            CacheReferences();
+            if (apparitionRenderer == null)
+            {
+                return;
+            }
+
+            Transform apparitionTransform = apparitionRenderer.transform;
+            Vector3 towardViewer = viewer != null
+                ? viewer.transform.position - apparitionTransform.position
+                : -apparitionTransform.forward;
+            if (towardViewer.sqrMagnitude < 0.001f)
+            {
+                towardViewer = -apparitionTransform.forward;
+            }
+
+            Vector3 worldOffset = towardViewer.normalized * scriptedLungeDistance;
+            scriptedLocalOffset = apparitionTransform.parent != null
+                ? apparitionTransform.parent.InverseTransformVector(worldOffset)
+                : worldOffset;
+            state = AppearanceState.ScriptedScare;
+            stateElapsed = 0f;
+            lookAwayElapsed = 0f;
+            cycleOffset = Vector3.zero;
+            apparitionRenderer.enabled = true;
+            apparitionTransform.localPosition = baseLocalPosition;
+            apparitionTransform.localScale = baseLocalScale;
+            SetAlpha(1f, true);
         }
 
         private void CacheReferences()
@@ -202,6 +250,35 @@ namespace DoNotDraw.World
             fadeStartAlpha = currentAlpha;
         }
 
+        private void UpdateScriptedScare(float deltaTime)
+        {
+            if (apparitionRenderer == null)
+            {
+                HideImmediately();
+                return;
+            }
+
+            stateElapsed += deltaTime;
+            float lungeProgress = SmoothStep01(stateElapsed / scriptedLungeDuration);
+            Transform apparitionTransform = apparitionRenderer.transform;
+            apparitionTransform.localPosition = baseLocalPosition + scriptedLocalOffset * lungeProgress;
+            apparitionTransform.localScale = baseLocalScale
+                * Mathf.Lerp(1f, scriptedScaleMultiplier, lungeProgress);
+
+            float fadeStart = scriptedLungeDuration + scriptedHoldDuration;
+            float fadeProgress = stateElapsed <= fadeStart
+                ? 0f
+                : SmoothStep01((stateElapsed - fadeStart) / scriptedFadeDuration);
+            SetAlpha(1f - fadeProgress, true);
+            if (stateElapsed < fadeStart + scriptedFadeDuration)
+            {
+                return;
+            }
+
+            HideImmediately();
+            ScheduleNextAppearance(minimumCooldown, maximumCooldown);
+        }
+
         private void TrackLookAway(bool viewerIsLooking, float deltaTime)
         {
             lookAwayElapsed = viewerIsLooking
@@ -223,12 +300,14 @@ namespace DoNotDraw.World
             apparitionTransform.localScale = baseLocalScale * revealScale;
         }
 
-        private void SetAlpha(float alpha)
+        private void SetAlpha(float alpha, bool ignoreMaximumAlpha = false)
         {
             EnsurePropertyBlock();
             currentAlpha = Mathf.Clamp01(alpha);
             apparitionRenderer.GetPropertyBlock(propertyBlock);
-            propertyBlock.SetFloat(ApparitionAlphaId, currentAlpha * maximumAlpha);
+            propertyBlock.SetFloat(
+                ApparitionAlphaId,
+                currentAlpha * (ignoreMaximumAlpha ? 1f : maximumAlpha));
             apparitionRenderer.SetPropertyBlock(propertyBlock);
         }
 
@@ -285,6 +364,11 @@ namespace DoNotDraw.World
             lookAwayGracePeriod = Mathf.Max(0f, lookAwayGracePeriod);
             minimumCooldown = Mathf.Max(0f, minimumCooldown);
             maximumCooldown = Mathf.Max(minimumCooldown, maximumCooldown);
+            scriptedLungeDistance = Mathf.Max(0f, scriptedLungeDistance);
+            scriptedLungeDuration = Mathf.Max(0.01f, scriptedLungeDuration);
+            scriptedHoldDuration = Mathf.Max(0f, scriptedHoldDuration);
+            scriptedFadeDuration = Mathf.Max(0.01f, scriptedFadeDuration);
+            scriptedScaleMultiplier = Mathf.Clamp(scriptedScaleMultiplier, 1f, 1.4f);
 
             if (horizontalOffsetRange.x > horizontalOffsetRange.y)
             {
