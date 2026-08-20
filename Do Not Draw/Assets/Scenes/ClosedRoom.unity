@@ -7662,7 +7662,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 1428597748204880165, guid: 0cc0ddd254e52e245976ad8ccc87e3de, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1625894451}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 5956653443922305181, guid: 0cc0ddd254e52e245976ad8ccc87e3de, type: 3}
       insertIndex: -1
@@ -7721,11 +7724,16 @@ Canvas:
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
   m_UseReflectionProbes: 0
-  m_AdditionalShaderChannelsFlag: 25
+  m_AdditionalShaderChannelsFlag: 0
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
   m_SortingOrder: 1001
   m_TargetDisplay: 0
+--- !u!224 &675594335 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 1428597748204880165, guid: 0cc0ddd254e52e245976ad8ccc87e3de, type: 3}
+  m_PrefabInstance: {fileID: 662435363}
+  m_PrefabAsset: {fileID: 0}
 --- !u!114 &675594336
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7738,7 +7746,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dc42784cf147c0c48a680349fa168899, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.GraphicRaycaster
-  m_IgnoreReversedGraphics: 1
+  m_IgnoreReversedGraphics: 0
   m_BlockingObjects: 0
   m_BlockingMask:
     serializedVersion: 2
@@ -12403,7 +12411,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1620401534}
-  - {fileID: 1625894451}
   - {fileID: 1517939620}
   - {fileID: 9005220659128639492}
   - {fileID: 2145153014}
@@ -17723,11 +17730,11 @@ Transform:
   m_GameObject: {fileID: 1625894448}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -960, y: -540, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1049513875}
+  m_Father: {fileID: 675594335}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1627595891
 GameObject:
