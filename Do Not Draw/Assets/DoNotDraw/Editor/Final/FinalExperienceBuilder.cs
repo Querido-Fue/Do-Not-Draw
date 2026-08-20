@@ -17,7 +17,6 @@ namespace DoNotDraw.Narrative.Editor
 {
     public static class FinalExperienceBuilder
     {
-        private const string ScenePath = "Assets/Scenes/ClosedRoom.unity";
         private const string FinalRootName = "FINAL EXPERIENCE - FLOW AUTHORITY";
         private const string SettingsPopupRootName = "Settings Popup Runtime";
         private const string SettingsPopupPrefabPath = "Assets/Prefabs/SettingPopup.prefab";
@@ -134,35 +133,28 @@ namespace DoNotDraw.Narrative.Editor
             public int EndSample;
         }
 
-        [MenuItem("Tools/Do Not Draw/Build Final Flow Experience")]
-        public static void BuildFinalFlowExperience()
+        [MenuItem("Tools/Do Not Draw/Refresh Final Narrative Assets")]
+        public static void RefreshFinalNarrativeAssets()
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode)
             {
-                Debug.LogError("[Final Experience] Exit Play Mode before rebuilding the final flow.");
+                Debug.LogError("[Final Narrative] Exit Play Mode before refreshing narrative assets.");
                 return;
             }
 
             EnsureFolders();
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
-            Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
-
-            // Scene loading can unload unreferenced native asset objects. Resolve all build-time
-            // asset references only after the target scene is open so they survive scene wiring.
             List<AudioClip> voiceClips = SplitVoiceRecording();
-            NarrativeAssets assets = BuildNarrativeAssets(voiceClips);
-
-            BuildScene(scene, assets);
-            EditorSceneManager.MarkSceneDirty(scene);
-            EditorSceneManager.SaveScene(scene);
+            BuildNarrativeAssets(voiceClips);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
 
             NarrativeValidationReport report = NarrativeAssetValidator.ValidateAll();
-            NarrativeAssetValidator.LogReport(report, "final flow experience");
+            NarrativeAssetValidator.LogReport(report, "final narrative assets");
             Debug.Log(
-                $"[Final Experience] BUILD COMPLETE. Voice segments: {voiceClips.Count}. "
-                + $"Validation errors: {report.Errors.Count}, warnings: {report.Warnings.Count}.");
+                $"[Final Narrative] REFRESH COMPLETE. Voice segments: {voiceClips.Count}. "
+                + $"Validation errors: {report.Errors.Count}, warnings: {report.Warnings.Count}. "
+                + "ClosedRoom.unity was not opened or modified.");
         }
 
         private static void EnsureFolders()
@@ -983,7 +975,10 @@ namespace DoNotDraw.Narrative.Editor
             return material;
         }
 
-        private static void BuildScene(Scene scene, NarrativeAssets assets)
+        // Legacy one-time scene construction is intentionally disconnected from every menu and
+        // refresh path. ClosedRoom.unity is the authoritative map and must be edited directly.
+        [Obsolete("ClosedRoom.unity is scene-authored. Do not regenerate it from narrative data.", true)]
+        private static void BuildLegacyScene(Scene scene, NarrativeAssets assets)
         {
             GameObject oldRoot = FindSceneObject(scene, FinalRootName);
             if (oldRoot != null)

@@ -673,8 +673,7 @@ namespace DoNotDraw.Narrative.Editor
                     parent,
                     new Vector3(SecondDoorX, DoorHeight * 0.5f, wallZ - 0.05f),
                     new Vector3(DoorWidth + 0.04f, DoorHeight, 0.08f),
-                    wall,
-                    false);
+                    wall);
             }
 
             BuildWindow(
