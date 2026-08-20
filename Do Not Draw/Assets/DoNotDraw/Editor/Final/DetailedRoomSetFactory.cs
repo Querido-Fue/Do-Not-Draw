@@ -51,7 +51,6 @@ namespace DoNotDraw.Narrative.Editor
         private const float SecondRoomCenterZ = RoomDepth + RoomSeparation;
         private const float NorthWallZ = RoomDepth * 0.5f;
         private const float SecondNorthWallZ = SecondRoomCenterZ + RoomDepth * 0.5f;
-        private const float FirstDoorX = -2f;
         private const float WindowX = 0f;
         private const float SecondDoorX = 2f;
         private const float DoorWidth = 1f;
@@ -194,7 +193,7 @@ namespace DoNotDraw.Narrative.Editor
             refs.FirstRearRimAnchor = CreateMarker(
                 refs.FirstRoomSet.transform,
                 "First Room Rear Rim Anchor",
-                new Vector3(FirstDoorX, 1.25f, NorthWallZ - 0.22f),
+                new Vector3(SecondDoorX, 1.25f, NorthWallZ - 0.22f),
                 Quaternion.identity);
 
             BuildNorthWallFeatures(
@@ -219,7 +218,7 @@ namespace DoNotDraw.Narrative.Editor
             refs.SecondRearRimAnchor = CreateMarker(
                 refs.SecondRoomSet.transform,
                 "Second Room Rear Rim Anchor",
-                new Vector3(FirstDoorX, 1.25f, SecondNorthWallZ - 0.22f),
+                new Vector3(SecondDoorX, 1.25f, SecondNorthWallZ - 0.22f),
                 Quaternion.identity);
 
             refs.WindowVision = BuildWindowVision(
@@ -285,7 +284,7 @@ namespace DoNotDraw.Narrative.Editor
             refs.ExitLight = BuildPointLight(
                 "Exit White Light",
                 refs.SecondRoomSet.transform,
-                new Vector3(FirstDoorX, 1.35f, SecondNorthWallZ + 0.46f),
+                new Vector3(SecondDoorX, 1.35f, SecondNorthWallZ + 0.46f),
                 Color.white,
                 48f,
                 5f,
@@ -337,7 +336,7 @@ namespace DoNotDraw.Narrative.Editor
             refs.EndingZone = BuildZone(
                 "Bright Exit Zone",
                 refs.SecondRoomSet.transform,
-                new Vector3(FirstDoorX, 1f, SecondNorthWallZ + 0.54f),
+                new Vector3(SecondDoorX, 1f, SecondNorthWallZ + 0.54f),
                 new Vector3(DoorWidth, 2f, 0.86f),
                 NarrativeZoneId.EndingCorridor,
                 player,
@@ -586,16 +585,13 @@ namespace DoNotDraw.Narrative.Editor
             cover = null;
             float leftEdge = -RoomWidth * 0.5f;
             float rightEdge = RoomWidth * 0.5f;
-            float firstLeft = FirstDoorX - DoorWidth * 0.5f;
-            float firstRight = FirstDoorX + DoorWidth * 0.5f;
             float windowLeft = WindowX - DoorWidth * 0.5f;
             float windowRight = WindowX + DoorWidth * 0.5f;
             float secondLeft = SecondDoorX - DoorWidth * 0.5f;
             float secondRight = SecondDoorX + DoorWidth * 0.5f;
 
-            CreateWallSegment(parent, "North Far Left", leftEdge, firstLeft, wallZ, wall);
-            CreateWallSegment(parent, "North Between First And Window", firstRight, windowLeft, wallZ, wall);
-            CreateWallSegment(parent, "North Between Window And Second", windowRight, secondLeft, wallZ, wall);
+            CreateWallSegment(parent, "North Left Of Window", leftEdge, windowLeft, wallZ, wall);
+            CreateWallSegment(parent, "North Between Window And Right Door", windowRight, secondLeft, wallZ, wall);
             CreateWallSegment(parent, "North Far Right", secondRight, rightEdge, wallZ, wall);
             CreateCube(
                 "North Door Lintel",
@@ -610,39 +606,26 @@ namespace DoNotDraw.Narrative.Editor
                 new Vector3(DoorWidth, 0.8f, 0.18f),
                 wall);
             float interiorBaseboardZ = wallZ - 0.115f;
-            CreateHorizontalBaseboard(parent, "North Baseboard Far Left", leftEdge, firstLeft, interiorBaseboardZ, wallTrim);
-            CreateHorizontalBaseboard(parent, "North Baseboard Between First And Window", firstRight, windowLeft, interiorBaseboardZ, wallTrim);
+            CreateHorizontalBaseboard(parent, "North Baseboard Left Of Window", leftEdge, windowLeft, interiorBaseboardZ, wallTrim);
             CreateHorizontalBaseboard(parent, "North Baseboard Below Window", windowLeft, windowRight, interiorBaseboardZ, wallTrim);
-            CreateHorizontalBaseboard(parent, "North Baseboard Between Window And Second", windowRight, secondLeft, interiorBaseboardZ, wallTrim);
+            CreateHorizontalBaseboard(parent, "North Baseboard Between Window And Right Door", windowRight, secondLeft, interiorBaseboardZ, wallTrim);
             CreateHorizontalBaseboard(parent, "North Baseboard Far Right", secondRight, rightEdge, interiorBaseboardZ, wallTrim);
 
             if (secondRoom)
             {
                 storyDoor = BuildDoor(
-                    "First Door - Story Exit",
+                    "Right Door - Story Exit",
                     parent,
-                    new Vector3(FirstDoorX, 0f, wallZ - 0.08f),
+                    new Vector3(SecondDoorX, 0f, wallZ - 0.08f),
                     DoorWidth,
                     doorMaterial,
                     brass,
                     doorCreak,
                     doorSlam,
                     false);
-                BuildFixedDoor(
-                    "Second Door Copy - Closed",
-                    parent,
-                    new Vector3(SecondDoorX, DoorHeight * 0.5f, wallZ - 0.08f),
-                    doorMaterial,
-                    nickel);
             }
             else
             {
-                BuildFixedDoor(
-                    "First Door - Locked Brass",
-                    parent,
-                    new Vector3(FirstDoorX, DoorHeight * 0.5f, wallZ - 0.08f),
-                    doorMaterial,
-                    brass);
                 secondDoor = BuildDoor(
                     "Second Door Pivot",
                     parent,
@@ -759,14 +742,6 @@ namespace DoNotDraw.Narrative.Editor
             Set(serialized, "slamSound", slamClip);
             serialized.ApplyModifiedPropertiesWithoutUndo();
             return door;
-        }
-
-        private static void BuildFixedDoor(string name, Transform parent, Vector3 position, Material door, Material handleMaterial)
-        {
-            GameObject panel = CreateCube(name, parent, position, new Vector3(DoorWidth, DoorHeight, 0.1f), door);
-            GameObject handle = CreatePrimitive(PrimitiveType.Sphere, "Handle", panel.transform, false, handleMaterial);
-            handle.transform.localPosition = new Vector3(0.34f, 0f, -0.09f);
-            handle.transform.localScale = Vector3.one * 0.075f;
         }
 
         private static void BuildWindow(
