@@ -21,6 +21,8 @@ namespace DoNotDraw.Audio
         private AudioSource audioSource;
         private float distanceSinceLastStep;
         private int lastClipIndex = -1;
+        private Vector3 lastPosition;
+        private bool hasLastPosition;
         private bool wasMoving;
         private bool useAlternateFootsteps;
 
@@ -30,6 +32,14 @@ namespace DoNotDraw.Audio
             firstPersonController = GetComponent<FirstPersonController>();
             audioSource = GetComponent<AudioSource>();
             ConfigureAudioSource();
+            PrimeFootstepClips();
+            ResetMotionTracking();
+        }
+
+        private void OnEnable()
+        {
+            PrimeFootstepClips();
+            ResetMotionTracking();
         }
 
         private void Reset()
@@ -40,12 +50,32 @@ namespace DoNotDraw.Audio
 
         private void Update()
         {
-            Vector3 velocity = characterController.velocity;
-            float horizontalSpeed = new Vector2(velocity.x, velocity.z).magnitude;
+            Vector3 currentPosition = transform.position;
+            if (!hasLastPosition)
+            {
+                lastPosition = currentPosition;
+                hasLastPosition = true;
+                return;
+            }
+
+            Vector3 movement = currentPosition - lastPosition;
+            lastPosition = currentPosition;
+            movement.y = 0f;
+            float horizontalDistance = movement.magnitude;
+            float horizontalSpeed = Time.deltaTime > 0.0001f
+                ? horizontalDistance / Time.deltaTime
+                : 0f;
             bool isGrounded = firstPersonController != null
-                ? firstPersonController.Grounded
+                ? firstPersonController.Grounded || characterController.isGrounded
                 : characterController.isGrounded;
             bool isMoving = isGrounded && horizontalSpeed > minimumSpeed;
+
+            if (horizontalDistance > stepDistance * 1.5f)
+            {
+                distanceSinceLastStep = 0f;
+                wasMoving = false;
+                return;
+            }
 
             if (!isMoving)
             {
@@ -60,17 +90,20 @@ namespace DoNotDraw.Audio
                 wasMoving = true;
             }
 
-            distanceSinceLastStep += horizontalSpeed * Time.deltaTime;
+            distanceSinceLastStep += horizontalDistance;
             if (distanceSinceLastStep < stepDistance)
             {
                 return;
             }
 
             distanceSinceLastStep %= stepDistance;
-            PlayRandomFootstep();
+            if (!TryPlayRandomFootstep())
+            {
+                distanceSinceLastStep = stepDistance * 0.75f;
+            }
         }
 
-        private void PlayRandomFootstep()
+        private bool TryPlayRandomFootstep()
         {
             AudioClip[] activeClips = useAlternateFootsteps
                 && alternateFootstepClips is { Length: > 0 }
@@ -78,7 +111,7 @@ namespace DoNotDraw.Audio
                     : footstepClips;
             if (activeClips == null || activeClips.Length == 0)
             {
-                return;
+                return false;
             }
 
             int clipIndex = Random.Range(0, activeClips.Length);
@@ -90,12 +123,24 @@ namespace DoNotDraw.Audio
             AudioClip clip = activeClips[clipIndex];
             if (clip == null)
             {
-                return;
+                return false;
+            }
+
+            if (clip.loadState == AudioDataLoadState.Unloaded)
+            {
+                clip.LoadAudioData();
+                return false;
+            }
+
+            if (clip.loadState != AudioDataLoadState.Loaded)
+            {
+                return false;
             }
 
             lastClipIndex = clipIndex;
             audioSource.pitch = Random.Range(pitchRange.x, pitchRange.y);
             audioSource.PlayOneShot(clip, volume * SfxVolume.Scale);
+            return true;
         }
 
         public void SetAlternateSurface(bool alternate)
@@ -125,10 +170,39 @@ namespace DoNotDraw.Audio
             audioSource.priority = 96;
         }
 
+        private void PrimeFootstepClips()
+        {
+            PrimeClips(footstepClips);
+            PrimeClips(alternateFootstepClips);
+        }
+
+        private static void PrimeClips(AudioClip[] clips)
+        {
+            if (clips == null)
+            {
+                return;
+            }
+
+            foreach (AudioClip clip in clips)
+            {
+                if (clip != null && clip.loadState == AudioDataLoadState.Unloaded)
+                {
+                    clip.LoadAudioData();
+                }
+            }
+        }
+
+        private void ResetMotionTracking()
+        {
+            lastPosition = transform.position;
+            hasLastPosition = true;
+        }
+
         private void OnDisable()
         {
             distanceSinceLastStep = 0f;
             wasMoving = false;
+            hasLastPosition = false;
 
             if (audioSource != null)
             {
