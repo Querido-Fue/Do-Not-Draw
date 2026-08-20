@@ -637,6 +637,13 @@ namespace DoNotDraw.World
             }
             if (!isOn)
             {
+                lightRuleRevealCount = 0;
+                RevealSecondDoor();
+                SetFact(lightSwitchUsedFact, true);
+                lightRuleArmed = false;
+                runner?.RequestExternalAdvance();
+                source.SetInteractionEnabled(true);
+
                 lightRuleBlackoutActive = true;
                 SetLightEnabled(lampLight, false);
                 SetLightEnabled(secondRoomLampLight, false);
@@ -648,8 +655,6 @@ namespace DoNotDraw.World
                     ambientSource.volume = 0f;
                 }
                 clockSource?.Stop();
-                source.SetInteractionEnabled(false);
-                StartCoroutine(ReenableSwitchAfterDarkHold(source));
                 return;
             }
             lightRuleRevealCount = 0;
