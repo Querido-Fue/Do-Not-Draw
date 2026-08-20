@@ -12645,6 +12645,8 @@ MonoBehaviour:
     cue: 20
   - signal: {fileID: 11400000, guid: 13b2862ad1743dd44b7c2aec1f35cb42, type: 2}
     cue: 21
+  - signal: {fileID: 11400000, guid: 7d8ffc9eabce4c40b6f6e301d521a97e, type: 2}
+    cue: 22
   playerRoot: {fileID: 626772915}
   playerView: {fileID: 726065129}
   playerCamera: {fileID: 726065130}

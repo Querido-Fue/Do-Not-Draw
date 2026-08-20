@@ -31,7 +31,8 @@ namespace DoNotDraw.World
         SwingUnnaturalShadow,
         OpenExit,
         PrepareEnding,
-        ShowEnding
+        ShowEnding,
+        CloseSecondDoorOnLook
     }
 
     [Serializable]
@@ -527,6 +528,9 @@ namespace DoNotDraw.World
                         StopCoroutine(endingRoutine);
                     }
                     endingRoutine = StartCoroutine(EndingZoomRoutine());
+                    break;
+                case ClosedRoomCue.CloseSecondDoorOnLook:
+                    secondDoor?.CloseWithSlam();
                     break;
             }
         }

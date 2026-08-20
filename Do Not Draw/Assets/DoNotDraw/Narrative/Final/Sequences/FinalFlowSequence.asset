@@ -256,6 +256,7 @@ MonoBehaviour:
     - {fileID: 11400000, guid: d19bad54a7f4dd246919402982bb3ae3, type: 2}
     revealSignals:
     - {fileID: 11400000, guid: 249024bf0c8672c40a7e5cf055181b58, type: 2}
+    - {fileID: 11400000, guid: 7d8ffc9eabce4c40b6f6e301d521a97e, type: 2}
     completeSignals: []
     transitions:
     - finishSequence: 0
