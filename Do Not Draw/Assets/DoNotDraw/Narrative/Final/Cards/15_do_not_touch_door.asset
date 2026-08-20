@@ -16,6 +16,7 @@ MonoBehaviour:
   displayName: Do noT TOUCH tHE dOOr
   faceText: Do noT TOUCH tHE dOOr
   faceTexture: {fileID: 2800000, guid: 9e1a2e8b6d3101f41ab24bebffabf1e6, type: 3}
+  faceTextureAssetPath: Assets/Art/Card/Card13_DoNotTouchTheDoor.png
   faceAccentMaterial: {fileID: 2100000, guid: b9160984b09414d40a89c3d4461c8eab, type: 2}
   faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}
   drawSoundOverride: {fileID: 0}

@@ -100,6 +100,7 @@ namespace DoNotDraw.World
         [SerializeField] private Transform secondRoomRimAnchor;
         [SerializeField] private Light silhouetteBacklight;
         [SerializeField] private Light exitLight;
+        [SerializeField, Range(0.1f, 1f)] private float litStateBrightnessMultiplier = 0.7f;
         [SerializeField, Range(0f, 0.05f)] private float flickerAmplitude;
         [SerializeField, Min(0.05f)] private float switchResidualDarkeningDuration = 1f;
         [SerializeField, Range(0f, 1f)] private float switchResidualLightMultiplier = 0.48f;
@@ -283,12 +284,22 @@ namespace DoNotDraw.World
                 ? playerRoot.GetComponentInChildren<RandomFootstepPlayer>(true)
                 : FindAnyObjectByType<RandomFootstepPlayer>(FindObjectsInactive.Include);
 
-            initialLampIntensity = lampLight != null ? lampLight.intensity : 1f;
-            initialSecondLampIntensity = secondRoomLampLight != null
+            float sourceLampIntensity = lampLight != null ? lampLight.intensity : 1f;
+            float sourceSecondLampIntensity = secondRoomLampLight != null
                 ? secondRoomLampLight.intensity
-                : initialLampIntensity * 0.9f;
+                : sourceLampIntensity * 0.9f;
+            initialLampIntensity = sourceLampIntensity * litStateBrightnessMultiplier;
+            initialSecondLampIntensity = sourceSecondLampIntensity * litStateBrightnessMultiplier;
             primaryLightBase = initialLampIntensity;
             secondLightBase = initialSecondLampIntensity;
+            if (lampLight != null)
+            {
+                lampLight.intensity = initialLampIntensity;
+            }
+            if (secondRoomLampLight != null)
+            {
+                secondRoomLampLight.intensity = initialSecondLampIntensity;
+            }
             initialLampColor = lampLight != null ? lampLight.color : new Color(1f, 0.73f, 0.46f);
             initialSecondLampColor = secondRoomLampLight != null
                 ? secondRoomLampLight.color
@@ -297,11 +308,11 @@ namespace DoNotDraw.World
             initialSecondLampColorTemperature = secondRoomLampLight != null
                 ? secondRoomLampLight.colorTemperature
                 : initialLampColorTemperature;
-            initialAmbientLight = RenderSettings.ambientLight;
-            initialAmbientSkyColor = RenderSettings.ambientSkyColor;
-            initialAmbientEquatorColor = RenderSettings.ambientEquatorColor;
-            initialAmbientGroundColor = RenderSettings.ambientGroundColor;
-            initialReflectionIntensity = RenderSettings.reflectionIntensity;
+            initialAmbientLight = ScaleRgb(RenderSettings.ambientLight, litStateBrightnessMultiplier);
+            initialAmbientSkyColor = ScaleRgb(RenderSettings.ambientSkyColor, litStateBrightnessMultiplier);
+            initialAmbientEquatorColor = ScaleRgb(RenderSettings.ambientEquatorColor, litStateBrightnessMultiplier);
+            initialAmbientGroundColor = ScaleRgb(RenderSettings.ambientGroundColor, litStateBrightnessMultiplier);
+            initialReflectionIntensity = RenderSettings.reflectionIntensity * litStateBrightnessMultiplier;
             ambientLightingCached = true;
             initialAmbientVolume = ambientSource != null ? ambientSource.volume : 0f;
             ambientLogicalVolume = initialAmbientVolume;
@@ -2120,7 +2131,9 @@ namespace DoNotDraw.World
                     {
                         Renderer = surfaceRenderer,
                         MaterialIndex = materialIndex,
-                        InitialColor = material.GetColor(CeilingEmissionColorId),
+                        InitialColor = ScaleRgb(
+                            material.GetColor(CeilingEmissionColorId),
+                            litStateBrightnessMultiplier),
                         PropertyBlock = new MaterialPropertyBlock()
                     });
                 }
@@ -2249,6 +2262,7 @@ namespace DoNotDraw.World
         {
             cueBindings ??= new List<ClosedRoomCueBinding>();
             ceilingSurfaceRenderers ??= Array.Empty<Renderer>();
+            litStateBrightnessMultiplier = Mathf.Clamp(litStateBrightnessMultiplier, 0.1f, 1f);
             flickerAmplitude = Mathf.Clamp(flickerAmplitude, 0f, 0.05f);
             huntLightMultiplier = Mathf.Clamp(huntLightMultiplier, 0.15f, 0.3f);
             huntCeilingMultiplier = Mathf.Clamp(huntCeilingMultiplier, 0.15f, 0.35f);

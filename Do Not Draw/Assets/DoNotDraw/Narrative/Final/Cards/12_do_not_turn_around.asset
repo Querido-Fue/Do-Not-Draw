@@ -16,6 +16,7 @@ MonoBehaviour:
   displayName: dO nOT TuRN aROuNd
   faceText: dO nOT TuRN aROuNd
   faceTexture: {fileID: 2800000, guid: 7a067d94998f6574a8440c09473d7de8, type: 3}
+  faceTextureAssetPath: Assets/Art/Card/Card11_DoNotTurnAround.png
   faceAccentMaterial: {fileID: 2100000, guid: b9160984b09414d40a89c3d4461c8eab, type: 2}
   faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}
   drawSoundOverride: {fileID: 0}

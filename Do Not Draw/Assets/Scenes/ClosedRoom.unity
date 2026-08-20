@@ -3218,6 +3218,7 @@ GameObject:
   - component: {fileID: 318435333}
   - component: {fileID: 318435335}
   - component: {fileID: 318435334}
+  - component: {fileID: 318435336}
   m_Layer: 0
   m_Name: Card Four Surface
   m_TagString: Untagged
@@ -3297,6 +3298,20 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 318435332}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!114 &318435336
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 318435332}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 2048614685}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::DoNotDraw.Narrative.CardFaceRendererBinding
+  targetRenderer: {fileID: 318435334}
+  cardDefinition: {fileID: 11400000, guid: cdd9f5759cef575438affbd994f4c187, type: 2}
 --- !u!1 &330001657
 GameObject:
   m_ObjectHideFlags: 0
@@ -9655,6 +9670,7 @@ MonoBehaviour:
   maximumDistance: 8
   gazeThreshold: 0.955
   lookAwayGracePeriod: 0.45
+  maximumAlpha: 0.55
   fadeInDuration: 2.6
   holdDuration: 1.15
   fadeOutDuration: 3.1
@@ -18030,6 +18046,7 @@ MonoBehaviour:
   secondRoomRimAnchor: {fileID: 519834367}
   silhouetteBacklight: {fileID: 516031967}
   exitLight: {fileID: 127515913}
+  litStateBrightnessMultiplier: 0.7
   flickerAmplitude: 0
   switchResidualDarkeningDuration: 1
   switchResidualLightMultiplier: 0.48
@@ -21141,6 +21158,7 @@ MonoBehaviour:
   maximumDistance: 8
   gazeThreshold: 0.955
   lookAwayGracePeriod: 0.45
+  maximumAlpha: 0.55
   fadeInDuration: 2.6
   holdDuration: 1.15
   fadeOutDuration: 3.1
@@ -22214,6 +22232,21 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2038827748}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!115 &2048614685
+MonoScript:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name:
+  serializedVersion: 7
+  m_DefaultReferences: {}
+  m_Icon: {fileID: 0}
+  m_Type: 0
+  m_ExecutionOrder: 0
+  m_ClassName: CardFaceRendererBinding
+  m_Namespace: DoNotDraw.Narrative
+  m_AssemblyName: Assembly-CSharp
 --- !u!1001 &2056337521
 PrefabInstance:
   m_ObjectHideFlags: 0

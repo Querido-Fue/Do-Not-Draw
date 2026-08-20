@@ -18,6 +18,7 @@ namespace DoNotDraw.World
         [SerializeField, Min(0f)] private float lookAwayGracePeriod = 0.45f;
 
         [Header("Appearance")]
+        [SerializeField, Range(0f, 1f)] private float maximumAlpha = 0.55f;
         [SerializeField, Min(0.1f)] private float fadeInDuration = 2.6f;
         [SerializeField, Min(0f)] private float holdDuration = 1.15f;
         [SerializeField, Min(0.1f)] private float fadeOutDuration = 3.1f;
@@ -227,7 +228,7 @@ namespace DoNotDraw.World
             EnsurePropertyBlock();
             currentAlpha = Mathf.Clamp01(alpha);
             apparitionRenderer.GetPropertyBlock(propertyBlock);
-            propertyBlock.SetFloat(ApparitionAlphaId, currentAlpha);
+            propertyBlock.SetFloat(ApparitionAlphaId, currentAlpha * maximumAlpha);
             apparitionRenderer.SetPropertyBlock(propertyBlock);
         }
 
@@ -277,6 +278,7 @@ namespace DoNotDraw.World
         private void OnValidate()
         {
             maximumDistance = Mathf.Max(0.5f, maximumDistance);
+            maximumAlpha = Mathf.Clamp01(maximumAlpha);
             fadeInDuration = Mathf.Max(0.1f, fadeInDuration);
             holdDuration = Mathf.Max(0f, holdDuration);
             fadeOutDuration = Mathf.Max(0.1f, fadeOutDuration);

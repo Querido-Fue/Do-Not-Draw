@@ -27,6 +27,7 @@ namespace DoNotDraw.Narrative.Editor
             ValidateStableIds<CardSequenceDefinition>("sequence", sequence => sequence.StableId, report);
             ValidateStableIds<StoryFact>("fact", fact => fact.StableId, report);
             ValidateStableIds<StorySignal>("signal", signal => signal.StableId, report);
+            ValidateFinalCardImages(report);
 
             foreach (CardSequenceDefinition sequence in LoadAll<CardSequenceDefinition>())
             {
@@ -34,6 +35,44 @@ namespace DoNotDraw.Narrative.Editor
             }
 
             return report;
+        }
+
+        private static void ValidateFinalCardImages(NarrativeValidationReport report)
+        {
+            foreach (CardDefinition card in LoadAll<CardDefinition>())
+            {
+                string cardPath = AssetDatabase.GetAssetPath(card).Replace('\\', '/');
+                if (!cardPath.StartsWith(CardImageBindingEditor.FinalCardRoot + "/", System.StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(card.FaceTextureAssetPath))
+                {
+                    report.Errors.Add(
+                        $"Final card '{card.StableId}' has no stable face texture asset path ({cardPath}).");
+                    continue;
+                }
+
+                if (card.FaceTexture == null)
+                {
+                    report.Errors.Add(
+                        $"Final card '{card.StableId}' has no resolved face texture. "
+                        + $"Expected '{card.FaceTextureAssetPath}'.");
+                    continue;
+                }
+
+                string resolvedPath = AssetDatabase.GetAssetPath(card.FaceTexture).Replace('\\', '/');
+                if (!string.Equals(
+                        resolvedPath,
+                        card.FaceTextureAssetPath,
+                        System.StringComparison.Ordinal))
+                {
+                    report.Errors.Add(
+                        $"Final card '{card.StableId}' resolves '{resolvedPath}' but its stable path is "
+                        + $"'{card.FaceTextureAssetPath}'.");
+                }
+            }
         }
 
         public static NarrativeValidationReport ValidateSequence(CardSequenceDefinition sequence)

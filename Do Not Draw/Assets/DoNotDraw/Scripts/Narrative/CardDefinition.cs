@@ -19,6 +19,7 @@ namespace DoNotDraw.Narrative
         [SerializeField] private string displayName = "Unassigned Card";
         [SerializeField, TextArea(2, 6)] private string faceText;
         [SerializeField] private Texture2D faceTexture;
+        [SerializeField] private string faceTextureAssetPath;
         [SerializeField] private Material faceAccentMaterial;
         [SerializeField] private Color faceTextColor = new Color(0.055f, 0.035f, 0.025f, 1f);
         [SerializeField] private AudioClip drawSoundOverride;
@@ -39,6 +40,7 @@ namespace DoNotDraw.Narrative
         public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
         public string FaceText => faceText ?? string.Empty;
         public Texture2D FaceTexture => faceTexture;
+        public string FaceTextureAssetPath => faceTextureAssetPath ?? string.Empty;
         public Material FaceAccentMaterial => faceAccentMaterial;
         public Color FaceTextColor => faceTextColor;
         public AudioClip DrawSoundOverride => drawSoundOverride;
@@ -61,6 +63,7 @@ namespace DoNotDraw.Narrative
             stableId = string.IsNullOrWhiteSpace(stableId) ? string.Empty : stableId.Trim();
             displayName = displayName?.Trim() ?? string.Empty;
             faceText ??= string.Empty;
+            faceTextureAssetPath = faceTextureAssetPath?.Trim().Replace('\\', '/') ?? string.Empty;
             voiceVolume = Mathf.Clamp01(voiceVolume);
             voiceDelay = Mathf.Max(0f, voiceDelay);
             textFadeDuration = Mathf.Max(0f, textFadeDuration);

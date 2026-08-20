@@ -16,6 +16,7 @@ MonoBehaviour:
   displayName: Do Not Drow Again
   faceText: Do Not Drow Again
   faceTexture: {fileID: 2800000, guid: ddffc50f646c99947b839265c6764ae5, type: 3}
+  faceTextureAssetPath: Assets/Art/Card/Card19_DoNotDrowAgain.png
   faceAccentMaterial: {fileID: 2100000, guid: b9160984b09414d40a89c3d4461c8eab, type: 2}
   faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}
   drawSoundOverride: {fileID: 0}

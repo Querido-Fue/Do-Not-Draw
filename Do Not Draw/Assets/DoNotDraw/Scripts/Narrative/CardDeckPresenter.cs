@@ -50,11 +50,6 @@ namespace DoNotDraw.Narrative
         private float deckThicknessMultiplier = 1f;
         private bool visualStateCached;
 
-        private static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
-        private static readonly int MainTextureId = Shader.PropertyToID("_MainTex");
-        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
-        private static readonly int ColorId = Shader.PropertyToID("_Color");
-
         public bool IsPresenting { get; private set; }
         public int RemainingCards => remainingCards;
         public GameObject LatestCard => runtimeCards.Count > 0 ? runtimeCards[runtimeCards.Count - 1] : null;
@@ -194,13 +189,16 @@ namespace DoNotDraw.Narrative
         private Text ApplyDefinition(GameObject card, CardDefinition definition, int drawIndex)
         {
             Texture2D faceTexture = definition?.FaceTexture;
-            Transform frontSurface = card.transform.Find("Front Surface");
-            Transform frontDesign = card.transform.Find("Front Design");
+            Transform frontSurface = FindChildRecursive(card.transform, "Front Surface");
+            Transform frontDesign = FindChildRecursive(card.transform, "Front Design");
             Text faceLabel = card.GetComponentInChildren<Text>(true);
 
-            if (faceTexture != null)
+            Renderer frontSurfaceRenderer = frontSurface != null
+                ? frontSurface.GetComponent<Renderer>()
+                : null;
+            if (faceTexture != null
+                && CardFaceTextureApplicator.TryApply(frontSurfaceRenderer, faceTexture))
             {
-                ApplyFaceTexture(frontSurface, faceTexture);
                 if (frontDesign != null)
                 {
                     frontDesign.gameObject.SetActive(false);
@@ -212,6 +210,14 @@ namespace DoNotDraw.Narrative
                 }
 
                 return null;
+            }
+
+            if (faceTexture != null)
+            {
+                Debug.LogError(
+                    $"[CardDeckPresenter] Could not bind the face texture for "
+                    + $"'{definition.StableId}'. Showing the text fallback instead.",
+                    card);
             }
 
             Material accentMaterial = definition?.FaceAccentMaterial;
@@ -245,23 +251,28 @@ namespace DoNotDraw.Narrative
             return faceLabel;
         }
 
-        private static void ApplyFaceTexture(Transform frontSurface, Texture2D faceTexture)
+        private static Transform FindChildRecursive(Transform root, string childName)
         {
-            Renderer faceRenderer = frontSurface != null
-                ? frontSurface.GetComponent<Renderer>()
-                : null;
-            if (faceRenderer == null || faceTexture == null)
+            if (root == null || string.IsNullOrEmpty(childName))
             {
-                return;
+                return null;
             }
 
-            MaterialPropertyBlock properties = new MaterialPropertyBlock();
-            faceRenderer.GetPropertyBlock(properties);
-            properties.SetTexture(BaseMapId, faceTexture);
-            properties.SetTexture(MainTextureId, faceTexture);
-            properties.SetColor(BaseColorId, Color.white);
-            properties.SetColor(ColorId, Color.white);
-            faceRenderer.SetPropertyBlock(properties);
+            foreach (Transform child in root)
+            {
+                if (child.name == childName)
+                {
+                    return child;
+                }
+
+                Transform nested = FindChildRecursive(child, childName);
+                if (nested != null)
+                {
+                    return nested;
+                }
+            }
+
+            return null;
         }
 
         private void ApplyDrawPriority(GameObject card, int drawIndex)

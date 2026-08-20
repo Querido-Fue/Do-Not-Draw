@@ -16,6 +16,7 @@ MonoBehaviour:
   displayName: Good
   faceText: Good
   faceTexture: {fileID: 2800000, guid: 5a81b9d9333cb5245ac715c9d096801b, type: 3}
+  faceTextureAssetPath: Assets/Art/Card/Card12_Good.png
   faceAccentMaterial: {fileID: 2100000, guid: 9c1bc92ef35503245893d06d3fd174c0, type: 2}
   faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}
   drawSoundOverride: {fileID: 0}

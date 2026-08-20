@@ -16,6 +16,7 @@ MonoBehaviour:
   displayName: DO not lOOk bEHinD YOU
   faceText: DO not lOOk bEHinD YOU
   faceTexture: {fileID: 2800000, guid: 4fc11fbd57c571e489d6a18ec27d770d, type: 3}
+  faceTextureAssetPath: Assets/Art/Card/Card16_DoNotLookBehindYou.png
   faceAccentMaterial: {fileID: 2100000, guid: b9160984b09414d40a89c3d4461c8eab, type: 2}
   faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}
   drawSoundOverride: {fileID: 0}
