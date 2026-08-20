@@ -15,7 +15,7 @@ MonoBehaviour:
   stableId: final.card.do_not_draw_opening
   displayName: DO NOT DRAW.
   faceText: DO NOT DRAW.
-  faceTexture: {fileID: 0}
+  faceTexture: {fileID: 2800000, guid: 2417cdf3b1e970a45a014d1ffd293e42, type: 3}
   faceAccentMaterial: {fileID: 2100000, guid: 9c1bc92ef35503245893d06d3fd174c0, type: 2}
   faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}
   drawSoundOverride: {fileID: 0}

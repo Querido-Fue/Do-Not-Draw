@@ -15,7 +15,7 @@ MonoBehaviour:
   stableId: final.card.you_saw_it
   displayName: YOU SAW IT.
   faceText: YOU SAW IT.
-  faceTexture: {fileID: 0}
+  faceTexture: {fileID: 2800000, guid: 2491bd01aa70437499fd4d012225fc41, type: 3}
   faceAccentMaterial: {fileID: 2100000, guid: 9c1bc92ef35503245893d06d3fd174c0, type: 2}
   faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}
   drawSoundOverride: {fileID: 0}
