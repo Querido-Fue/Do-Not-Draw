@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using DoNotDraw.Audio;
 using DoNotDraw.Interaction;
 using DoNotDraw.Narrative;
+using DoNotDraw.UI;
 using UnityEngine;
 
 namespace DoNotDraw.World
@@ -128,7 +129,15 @@ namespace DoNotDraw.World
 
         [Header("Screen")]
         [SerializeField] private CanvasGroup screenFade;
+        [SerializeField] private HorrorPerceptionOverlay perceptionOverlay;
         [SerializeField] private bool enableClimaxThreat;
+
+        [Header("Horror Perception Tuning")]
+        [SerializeField, Range(0.15f, 0.3f)] private float huntLightMultiplier = 0.225f;
+        [SerializeField, Range(0.15f, 0.35f)] private float huntCeilingMultiplier = 0.24f;
+        [SerializeField, Range(0f, 0.05f)] private float huntFlickerAmplitude = 0.022f;
+        [SerializeField, Range(5f, 6f)] private float exitPressureDelay = 5.5f;
+        [SerializeField, Min(0.02f)] private float exitMovementThreshold = 0.08f;
 
         [Header("Audio Sources")]
         [SerializeField] private AudioSource ambientSource;
@@ -206,6 +215,20 @@ namespace DoNotDraw.World
         private float windowGazeElapsed;
         private float threatProgress;
         private float scriptedShake;
+        private float narrativeFlickerAmplitude;
+        private float horrorCeilingMultiplier = 1f;
+        private float exitPressureArmedAt;
+        private float exitPressureBaselineDistance;
+        private float exitPreviousDistance;
+        private float exitTowardProgress;
+        private float nextClimaxStrobeAt;
+        private float climaxStrobeUntil;
+        private float climaxStrobeMultiplier = 1f;
+        private float climaxSilenceUntil;
+        private float exitFovImpulse;
+        private float exitPrePressurePrimaryLight;
+        private float exitPrePressureSecondLight;
+        private Vector3 exitPreviousPlayerPosition;
         private bool inSecondRoom;
         private bool microFlickerPaused;
         private bool sensoryFrozen;
@@ -218,6 +241,11 @@ namespace DoNotDraw.World
         private bool turnViolationTriggered;
         private bool endingExitArmed;
         private bool endingActive;
+        private bool horrorEmissionOverride;
+        private bool exitPressureArmed;
+        private bool exitPressureActive;
+        private bool exitPressureSuppressed;
+        private bool exitTrackingPositionValid;
         private bool lightRuleArmed;
         private bool lightRuleBlackoutActive;
         private bool ambientLightingCached;
@@ -233,6 +261,7 @@ namespace DoNotDraw.World
         private Coroutine endingRoutine;
         private Coroutine presenterSwitchRoutine;
         private Coroutine ambientDarkeningRoutine;
+        private Coroutine exitWindPulseRoutine;
 
         private CardDeckInteraction ActiveDeckInteraction => inSecondRoom
             ? secondRoomInteraction
@@ -292,6 +321,10 @@ namespace DoNotDraw.World
         private void OnEnable()
         {
             SubscribeToSignals();
+            if (perceptionOverlay != null)
+            {
+                perceptionOverlay.ClimaxHardCut += HandleClimaxHardCut;
+            }
             if (runner != null)
             {
                 runner.CardDrawStarted += HandleCardDrawStarted;
@@ -312,6 +345,11 @@ namespace DoNotDraw.World
 
         private void OnDisable()
         {
+            if (perceptionOverlay != null)
+            {
+                perceptionOverlay.ClimaxHardCut -= HandleClimaxHardCut;
+                perceptionOverlay.StopAllEffects(0f);
+            }
             foreach ((StorySignal signal, Action<StorySignalContext> handler) in subscriptions)
             {
                 if (signal != null)
@@ -346,6 +384,7 @@ namespace DoNotDraw.World
             }
             RestoreAmbientLighting();
             SetCeilingEmissionMultiplier(1f);
+            ResetHorrorPerceptionState();
             presenterSwitchRoutine = null;
         }
 
@@ -358,7 +397,30 @@ namespace DoNotDraw.World
             UpdateWindowGaze();
             UpdateThreat();
             UpdateTurnTest();
+            UpdateExitPressure();
             UpdateExitCamera();
+        }
+
+        private void ResetHorrorPerceptionState()
+        {
+            narrativeFlickerAmplitude = 0f;
+            horrorCeilingMultiplier = 1f;
+            horrorEmissionOverride = false;
+            exitPressureArmed = false;
+            exitPressureActive = false;
+            exitPressureSuppressed = false;
+            exitTrackingPositionValid = false;
+            exitTowardProgress = 0f;
+            nextClimaxStrobeAt = 0f;
+            climaxStrobeUntil = 0f;
+            climaxStrobeMultiplier = 1f;
+            climaxSilenceUntil = 0f;
+            exitFovImpulse = 0f;
+            if (exitWindPulseRoutine != null)
+            {
+                StopCoroutine(exitWindPulseRoutine);
+                exitWindPulseRoutine = null;
+            }
         }
 
         // 오디오소스별로 "원래 의도한(스케일 전) 볼륨"을 logicalVolume에 저장해 두고
@@ -372,13 +434,14 @@ namespace DoNotDraw.World
             logicalVolume = value;
             if (source != null)
             {
-                source.volume = value * BgmVolume.Scale;
+                float audibleScale = IsClimaxHardCutSilent ? 0f : BgmVolume.Scale;
+                source.volume = value * audibleScale;
             }
         }
 
         private void ApplyBgmVolumeToLoopingSources()
         {
-            float scale = BgmVolume.Scale;
+            float scale = IsClimaxHardCutSilent ? 0f : BgmVolume.Scale;
             if (ambientSource != null)
             {
                 ambientSource.volume = ambientLogicalVolume * scale;
@@ -436,6 +499,8 @@ namespace DoNotDraw.World
             secondDoorRuleRevealCount = 0;
             enterRuleRevealCount = 0;
             pendingCardDipMinimum = 0.84f;
+            ResetHorrorPerceptionState();
+            perceptionOverlay?.StopAllEffects(0f);
             RestoreAmbientLighting();
             SetCeilingEmissionMultiplier(1f);
 
@@ -1123,7 +1188,14 @@ namespace DoNotDraw.World
         {
             sensoryFrozen = false;
             microFlickerPaused = false;
-            StartLightFade(initialLampIntensity * 0.4f, initialSecondLampIntensity * 0.4f, 6f);
+            narrativeFlickerAmplitude = huntFlickerAmplitude;
+            horrorEmissionOverride = true;
+            horrorCeilingMultiplier = huntCeilingMultiplier;
+            SetCeilingEmissionMultiplier(horrorCeilingMultiplier);
+            StartLightFade(
+                initialLampIntensity * huntLightMultiplier,
+                initialSecondLampIntensity * huntLightMultiplier,
+                6f);
             if (transitionSource != null && threatBreathingClip != null)
             {
                 transitionSource.clip = threatBreathingClip;
@@ -1152,6 +1224,10 @@ namespace DoNotDraw.World
 
         private void StartHunt(bool close)
         {
+            if (!close)
+            {
+                perceptionOverlay?.BeginPeripheralHaunting();
+            }
             if (threatSilhouette == null || threatStart == null || threatEnd == null)
             {
                 return;
@@ -1262,6 +1338,11 @@ namespace DoNotDraw.World
 
         private IEnumerator ActThreeToFourRoutine()
         {
+            perceptionOverlay?.StopAllEffects(0.18f);
+            narrativeFlickerAmplitude = 0f;
+            horrorEmissionOverride = false;
+            horrorCeilingMultiplier = 1f;
+            SetCeilingEmissionMultiplier(1f);
             if (huntActive || (threatSilhouette != null && threatSilhouette.gameObject.activeSelf))
             {
                 DismissThreat(0.8f);
@@ -1413,10 +1494,215 @@ namespace DoNotDraw.World
                 SetAudioVolume(windSource, ref windLogicalVolume, 0.12f);
                 windSource.Play();
             }
-            if (enableClimaxThreat)
+            ArmExitPressure();
+        }
+
+        private void ArmExitPressure()
+        {
+            exitPressureActive = false;
+            exitPressureSuppressed = false;
+            exitPressureArmed = enableClimaxThreat && playerRoot != null && storyDoor != null;
+            exitPressureArmedAt = Time.unscaledTime;
+            exitTowardProgress = 0f;
+            exitTrackingPositionValid = playerRoot != null;
+            if (!exitTrackingPositionValid)
             {
-                StartHunt(true);
+                return;
             }
+
+            exitPreviousPlayerPosition = playerRoot.position;
+            exitPressureBaselineDistance = GetHorizontalExitDistance();
+            exitPreviousDistance = exitPressureBaselineDistance;
+        }
+
+        private void UpdateExitPressure()
+        {
+            if (!endingExitArmed
+                || !exitPressureArmed
+                || exitPressureSuppressed
+                || playerRoot == null
+                || storyDoor == null)
+            {
+                return;
+            }
+
+            Vector3 currentPosition = playerRoot.position;
+            float currentDistance = GetHorizontalExitDistance();
+            float distanceStep = exitPreviousDistance - currentDistance;
+            float movementTowardDoor = 0f;
+            if (exitTrackingPositionValid)
+            {
+                Vector3 movement = currentPosition - exitPreviousPlayerPosition;
+                movement.y = 0f;
+                Vector3 toDoor = storyDoor.transform.position - currentPosition;
+                toDoor.y = 0f;
+                if (toDoor.sqrMagnitude > 0.001f)
+                {
+                    movementTowardDoor = Vector3.Dot(movement, toDoor.normalized);
+                }
+            }
+
+            exitPreviousPlayerPosition = currentPosition;
+            exitPreviousDistance = currentDistance;
+            exitTrackingPositionValid = true;
+            exitTowardProgress = Mathf.Max(
+                exitTowardProgress,
+                exitPressureBaselineDistance - currentDistance);
+
+            float immediateMovementThreshold = Mathf.Max(0.006f, exitMovementThreshold * 0.075f);
+            bool movingTowardDoor = distanceStep > immediateMovementThreshold
+                || movementTowardDoor > immediateMovementThreshold;
+            if (exitTowardProgress >= exitMovementThreshold
+                || (exitPressureActive && movingTowardDoor))
+            {
+                CancelExitPressure(true);
+                return;
+            }
+
+            if (!exitPressureActive
+                && Time.unscaledTime - exitPressureArmedAt >= exitPressureDelay)
+            {
+                BeginExitPressure();
+            }
+        }
+
+        private bool IsClimaxHardCutSilent => exitPressureActive
+            && Time.unscaledTime < climaxSilenceUntil;
+
+        private void BeginExitPressure()
+        {
+            if (exitPressureActive || exitPressureSuppressed)
+            {
+                return;
+            }
+
+            exitPressureActive = true;
+            exitPrePressurePrimaryLight = primaryLightBase;
+            exitPrePressureSecondLight = secondLightBase;
+            narrativeFlickerAmplitude = Mathf.Max(narrativeFlickerAmplitude, huntFlickerAmplitude);
+            horrorEmissionOverride = true;
+            horrorCeilingMultiplier = Mathf.Min(huntCeilingMultiplier, 0.18f);
+            nextClimaxStrobeAt = Time.unscaledTime + 0.08f;
+            climaxStrobeUntil = 0f;
+            climaxStrobeMultiplier = 1f;
+            climaxSilenceUntil = 0f;
+            perceptionOverlay?.BeginClimaxPressure();
+            StartHunt(true);
+            StartLightFade(
+                exitPrePressurePrimaryLight * 0.52f,
+                exitPrePressureSecondLight * 0.52f,
+                0.4f);
+        }
+
+        private void CancelExitPressure(bool suppress)
+        {
+            bool wasActive = exitPressureActive;
+            exitPressureArmed = false;
+            exitPressureActive = false;
+            exitPressureSuppressed = suppress;
+            exitTrackingPositionValid = false;
+            narrativeFlickerAmplitude = 0f;
+            horrorEmissionOverride = false;
+            horrorCeilingMultiplier = 1f;
+            climaxStrobeMultiplier = 1f;
+            climaxSilenceUntil = 0f;
+            exitFovImpulse = 0f;
+
+            if (exitWindPulseRoutine != null)
+            {
+                StopCoroutine(exitWindPulseRoutine);
+                exitWindPulseRoutine = null;
+            }
+            if (endingExitArmed && windSource != null && windClip != null)
+            {
+                if (!windSource.isPlaying)
+                {
+                    windSource.clip = windClip;
+                    windSource.loop = true;
+                    windSource.Play();
+                }
+                SetAudioVolume(windSource, ref windLogicalVolume, 0.12f);
+            }
+
+            if (!wasActive)
+            {
+                return;
+            }
+
+            perceptionOverlay?.StopAllEffects(0.12f);
+            SetCeilingEmissionMultiplier(1f);
+            StartLightFade(exitPrePressurePrimaryLight, exitPrePressureSecondLight, 0.3f);
+            if (huntActive || (threatSilhouette != null && threatSilhouette.gameObject.activeSelf))
+            {
+                DismissThreat(0.35f);
+            }
+        }
+
+        private float GetHorizontalExitDistance()
+        {
+            if (playerRoot == null || storyDoor == null)
+            {
+                return 0f;
+            }
+
+            Vector3 offset = storyDoor.transform.position - playerRoot.position;
+            offset.y = 0f;
+            return offset.magnitude;
+        }
+
+        private void HandleClimaxHardCut()
+        {
+            if (!exitPressureActive)
+            {
+                return;
+            }
+
+            climaxSilenceUntil = Time.unscaledTime + 0.42f;
+            exitFovImpulse = -6f;
+            StartCoroutine(CameraShakeRoutine(0.016f, 0.34f));
+            if (exitWindPulseRoutine != null)
+            {
+                StopCoroutine(exitWindPulseRoutine);
+            }
+            exitWindPulseRoutine = StartCoroutine(ExitWindPulseRoutine());
+        }
+
+        private IEnumerator ExitWindPulseRoutine()
+        {
+            if (windSource != null)
+            {
+                SetAudioVolume(windSource, ref windLogicalVolume, 0f);
+            }
+            yield return new WaitForSecondsRealtime(0.42f);
+
+            if (!exitPressureActive || windSource == null || windClip == null)
+            {
+                exitWindPulseRoutine = null;
+                yield break;
+            }
+
+            windSource.clip = windClip;
+            windSource.loop = true;
+            if (!windSource.isPlaying)
+            {
+                windSource.Play();
+            }
+            const float peakVolume = 0.48f;
+            const float restingVolume = 0.16f;
+            const float duration = 1.35f;
+            SetAudioVolume(windSource, ref windLogicalVolume, peakVolume);
+            float elapsed = 0f;
+            while (elapsed < duration && exitPressureActive)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float progress = Mathf.Clamp01(elapsed / duration);
+                SetAudioVolume(
+                    windSource,
+                    ref windLogicalVolume,
+                    Mathf.Lerp(peakVolume, restingVolume, progress));
+                yield return null;
+            }
+            exitWindPulseRoutine = null;
         }
 
         private void UpdateExitCamera()
@@ -1425,6 +1711,7 @@ namespace DoNotDraw.World
             {
                 return;
             }
+            exitFovImpulse = Mathf.MoveTowards(exitFovImpulse, 0f, Time.unscaledDeltaTime * 11f);
             float target = initialCameraFov;
             if (endingExitArmed && storyDoor != null && playerView != null)
             {
@@ -1440,6 +1727,7 @@ namespace DoNotDraw.World
             {
                 target = initialCameraFov - 2f;
             }
+            target += exitFovImpulse;
             playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, target, Time.deltaTime * 5f);
         }
 
@@ -1449,6 +1737,7 @@ namespace DoNotDraw.World
             {
                 return;
             }
+            CancelExitPressure(true);
             endingZone?.SetTriggerEnabled(false);
             SetFact(leftRoomFact, true);
             runner?.RequestExternalAdvance();
@@ -1457,6 +1746,13 @@ namespace DoNotDraw.World
         private void PrepareEndingReset()
         {
             endingActive = true;
+            CancelExitPressure(false);
+            perceptionOverlay?.StopAllEffects(0f);
+            if (lightFadeRoutine != null)
+            {
+                StopCoroutine(lightFadeRoutine);
+                lightFadeRoutine = null;
+            }
             endingExitArmed = false;
             StopRearLookRule();
             turnTestActive = false;
@@ -1593,6 +1889,7 @@ namespace DoNotDraw.World
         private void HandleCardDrawStarted(CardDefinition card, int drawIndex)
         {
             StopRearLookRule();
+            perceptionOverlay?.StopAllEffects(0.12f);
             if (windowVisionArmed)
             {
                 windowVisionArmed = false;
@@ -1689,8 +1986,42 @@ namespace DoNotDraw.World
             {
                 float slow = Mathf.PerlinNoise(Time.unscaledTime * 2.17f, 0.31f) - 0.5f;
                 float fast = Mathf.PerlinNoise(Time.unscaledTime * 7.91f, 0.73f) - 0.5f;
-                flicker += (slow * 1.45f + fast * 0.55f) * flickerAmplitude;
+                float amplitude = flickerAmplitude + narrativeFlickerAmplitude;
+                flicker += (slow * 1.45f + fast * 0.55f) * amplitude;
             }
+
+            float strobe = 1f;
+            float now = Time.unscaledTime;
+            if (exitPressureActive)
+            {
+                if (now < climaxSilenceUntil)
+                {
+                    strobe = 0f;
+                }
+                else
+                {
+                    float intensity = perceptionOverlay != null
+                        ? perceptionOverlay.ClimaxIntensity
+                        : 0.5f;
+                    if (now >= nextClimaxStrobeAt)
+                    {
+                        climaxStrobeMultiplier = UnityEngine.Random.value < 0.78f
+                            ? UnityEngine.Random.Range(0.035f, 0.26f)
+                            : UnityEngine.Random.Range(1.05f, 1.28f);
+                        climaxStrobeUntil = now + UnityEngine.Random.Range(0.035f, 0.095f);
+                        nextClimaxStrobeAt = climaxStrobeUntil
+                            + UnityEngine.Random.Range(
+                                Mathf.Lerp(0.34f, 0.08f, intensity),
+                                Mathf.Lerp(0.62f, 0.18f, intensity));
+                    }
+                    if (now < climaxStrobeUntil)
+                    {
+                        strobe = climaxStrobeMultiplier;
+                    }
+                }
+            }
+
+            flicker *= strobe;
             if (lampLight != null && lampLight.enabled)
             {
                 lampLight.intensity = primaryLightBase * flicker * flickerDipMultiplier;
@@ -1698,6 +2029,11 @@ namespace DoNotDraw.World
             if (secondRoomLampLight != null && secondRoomLampLight.enabled)
             {
                 secondRoomLampLight.intensity = secondLightBase * flicker * flickerDipMultiplier;
+            }
+            if (horrorEmissionOverride)
+            {
+                SetCeilingEmissionMultiplier(
+                    horrorCeilingMultiplier * Mathf.Clamp(flicker * flickerDipMultiplier, 0f, 1.25f));
             }
         }
 
@@ -1914,6 +2250,11 @@ namespace DoNotDraw.World
             cueBindings ??= new List<ClosedRoomCueBinding>();
             ceilingSurfaceRenderers ??= Array.Empty<Renderer>();
             flickerAmplitude = Mathf.Clamp(flickerAmplitude, 0f, 0.05f);
+            huntLightMultiplier = Mathf.Clamp(huntLightMultiplier, 0.15f, 0.3f);
+            huntCeilingMultiplier = Mathf.Clamp(huntCeilingMultiplier, 0.15f, 0.35f);
+            huntFlickerAmplitude = Mathf.Clamp(huntFlickerAmplitude, 0f, 0.05f);
+            exitPressureDelay = Mathf.Clamp(exitPressureDelay, 5f, 6f);
+            exitMovementThreshold = Mathf.Max(0.02f, exitMovementThreshold);
             switchResidualDarkeningDuration = Mathf.Max(0.05f, switchResidualDarkeningDuration);
             switchResidualLightMultiplier = Mathf.Clamp01(switchResidualLightMultiplier);
             threatApproachDuration = Mathf.Max(1f, threatApproachDuration);
