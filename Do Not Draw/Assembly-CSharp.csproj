@@ -75,6 +75,7 @@
     <Compile Include="Assets\DoNotDraw\Scripts\Title\SettingPopupManager.cs" />
     <Compile Include="Assets\DoNotDraw\Scripts\World\HorrorDoorInteractable.cs" />
     <Compile Include="Assets\StarterAssets\Mobile\Scripts\Utilities\MobileDisableAutoSwitchControls.cs" />
+    <Compile Include="Assets\DoNotDraw\Scripts\UI\CardSubtitlePresenter.cs" />
     <Compile Include="Assets\DoNotDraw\Scripts\Narrative\StorySignal.cs" />
     <Compile Include="Assets\StarterAssets\FirstPersonController\Scripts\FirstPersonController.cs" />
     <Compile Include="Assets\DoNotDraw\Scripts\Narrative\StoryFactSetter.cs" />
