@@ -52,6 +52,8 @@ namespace DoNotDraw.World
     {
         private const float EndingDurationSeconds = 5f;
         private const float EndingFadeSeconds = 1f;
+        private const float WindowCardScareDelaySeconds = 0.2f;
+        private const float WindowCardScareDurationSeconds = 0.86f;
         private static readonly int CeilingEmissionColorId = Shader.PropertyToID("_Emission_Color");
         private static readonly int CeilingEmissionMapId = Shader.PropertyToID("_Emission_Map");
 
@@ -95,7 +97,6 @@ namespace DoNotDraw.World
         [SerializeField] private GameObject endingPortraitSilhouette;
 
         [Header("Scripted Apparitions")]
-        [SerializeField] private ImpossibleWindowWatcher firstRoomWindowWatcher;
         [SerializeField] private ImpossibleWindowWatcher secondRoomWindowWatcher;
         [SerializeField] private RoomFaceInfestation endingFaceInfestation;
 
@@ -1068,7 +1069,7 @@ namespace DoNotDraw.World
                 return;
             }
             secondDoorRuleRevealCount = 0;
-            firstRoomWindowWatcher?.TriggerFaintGlimpse();
+            secondRoomWindowWatcher?.ShowFaintUntilDismissed();
             SetFact(secondDoorOpenedFact, true);
             runner?.RequestExternalAdvance();
         }
@@ -1101,6 +1102,7 @@ namespace DoNotDraw.World
             {
                 return;
             }
+            secondRoomWindowWatcher?.FadeOutFaintPresence();
             inSecondRoom = true;
             playerFootsteps?.SetAlternateSurface(true);
             enterRuleRevealCount = 0;
@@ -1220,23 +1222,22 @@ namespace DoNotDraw.World
             windowVisionArmed = false;
             windowVision?.SetActive(false);
 
-            ImpossibleWindowWatcher watcher = inSecondRoom
-                ? secondRoomWindowWatcher
-                : firstRoomWindowWatcher;
+            ImpossibleWindowWatcher watcher = secondRoomWindowWatcher;
             if (watcher == null)
             {
                 windowVisionArmed = true;
                 return;
             }
 
-            watcher.TriggerScriptedScare();
-            PlayOneShot(windowFaceLungeClip, 0.86f);
-            windowCardScareRoutine = StartCoroutine(CompleteWindowCardScareRoutine());
+            windowCardScareRoutine = StartCoroutine(WindowCardScareRoutine(watcher));
         }
 
-        private IEnumerator CompleteWindowCardScareRoutine()
+        private IEnumerator WindowCardScareRoutine(ImpossibleWindowWatcher watcher)
         {
-            yield return new WaitForSecondsRealtime(0.86f);
+            yield return new WaitForSecondsRealtime(WindowCardScareDelaySeconds);
+            watcher.TriggerScriptedScare();
+            PlayOneShot(windowFaceLungeClip, 0.86f);
+            yield return new WaitForSecondsRealtime(WindowCardScareDurationSeconds);
             SetFact(windowVisionSeenFact, true);
             runner?.RequestExternalAdvance();
             windowCardScareRoutine = null;

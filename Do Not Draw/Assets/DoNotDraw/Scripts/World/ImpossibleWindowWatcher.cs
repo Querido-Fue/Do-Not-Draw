@@ -11,14 +11,12 @@ namespace DoNotDraw.World
         [SerializeField] private Camera viewer;
         [SerializeField] private Renderer apparitionRenderer;
 
-        [Header("Faint Glimpse")]
+        [Header("Faint Presence")]
         [SerializeField, Range(0f, 1f)] private float faintAlpha = 0.14f;
-        [SerializeField, Min(0.01f)] private float faintFadeInDuration = 0.04f;
-        [SerializeField, Min(0f)] private float faintHoldDuration = 0.05f;
-        [SerializeField, Min(0.01f)] private float faintFadeOutDuration = 0.13f;
+        [SerializeField, Min(0.01f)] private float faintEntryFadeDuration = 1.4f;
 
         [Header("Scripted Scare")]
-        [SerializeField, Min(0f)] private float scriptedLungeDistance = 0.24f;
+        [SerializeField, Min(0f)] private float scriptedLungeDistance = 0.38f;
         [SerializeField, Min(0.01f)] private float scriptedLungeDuration = 0.12f;
         [SerializeField, Min(0f)] private float scriptedHoldDuration = 0.24f;
         [SerializeField, Min(0.01f)] private float scriptedFadeDuration = 0.46f;
@@ -28,13 +26,16 @@ namespace DoNotDraw.World
         private AppearanceState state;
         private Vector3 baseLocalPosition;
         private Vector3 baseLocalScale;
+        private float currentAlpha;
+        private float fadeStartAlpha;
         private float stateElapsed;
         private Vector3 scriptedLocalOffset;
 
         private enum AppearanceState
         {
             Hidden,
-            FaintGlimpse,
+            FaintPresence,
+            FadingFaintPresence,
             ScriptedScare
         }
 
@@ -57,8 +58,8 @@ namespace DoNotDraw.World
         {
             switch (state)
             {
-                case AppearanceState.FaintGlimpse:
-                    UpdateFaintGlimpse(Time.unscaledDeltaTime);
+                case AppearanceState.FadingFaintPresence:
+                    UpdateFaintPresenceFade(Time.unscaledDeltaTime);
                     break;
 
                 case AppearanceState.ScriptedScare:
@@ -67,7 +68,7 @@ namespace DoNotDraw.World
             }
         }
 
-        public void TriggerFaintGlimpse()
+        public void ShowFaintUntilDismissed()
         {
             EnsurePropertyBlock();
             if (apparitionRenderer == null || state == AppearanceState.ScriptedScare)
@@ -75,13 +76,26 @@ namespace DoNotDraw.World
                 return;
             }
 
-            state = AppearanceState.FaintGlimpse;
+            state = AppearanceState.FaintPresence;
             stateElapsed = 0f;
             scriptedLocalOffset = Vector3.zero;
             apparitionRenderer.enabled = true;
             apparitionRenderer.transform.localPosition = baseLocalPosition;
             apparitionRenderer.transform.localScale = baseLocalScale;
-            SetAlpha(0f);
+            SetAlpha(faintAlpha);
+        }
+
+        public void FadeOutFaintPresence()
+        {
+            if (state != AppearanceState.FaintPresence
+                && state != AppearanceState.FadingFaintPresence)
+            {
+                return;
+            }
+
+            state = AppearanceState.FadingFaintPresence;
+            stateElapsed = 0f;
+            fadeStartAlpha = currentAlpha;
         }
 
         public void TriggerScriptedScare()
@@ -134,7 +148,7 @@ namespace DoNotDraw.World
             baseLocalScale = apparitionTransform.localScale;
         }
 
-        private void UpdateFaintGlimpse(float deltaTime)
+        private void UpdateFaintPresenceFade(float deltaTime)
         {
             if (apparitionRenderer == null)
             {
@@ -143,27 +157,9 @@ namespace DoNotDraw.World
             }
 
             stateElapsed += deltaTime;
-            float fadeInEndsAt = faintFadeInDuration;
-            float holdEndsAt = fadeInEndsAt + faintHoldDuration;
-            float glimpseEndsAt = holdEndsAt + faintFadeOutDuration;
-            float alpha;
-            if (stateElapsed < fadeInEndsAt)
-            {
-                alpha = faintAlpha * SmoothStep01(stateElapsed / faintFadeInDuration);
-            }
-            else if (stateElapsed < holdEndsAt)
-            {
-                alpha = faintAlpha;
-            }
-            else
-            {
-                float fadeProgress = SmoothStep01(
-                    (stateElapsed - holdEndsAt) / faintFadeOutDuration);
-                alpha = faintAlpha * (1f - fadeProgress);
-            }
-
-            SetAlpha(alpha);
-            if (stateElapsed >= glimpseEndsAt)
+            float fadeProgress = SmoothStep01(stateElapsed / faintEntryFadeDuration);
+            SetAlpha(Mathf.Lerp(fadeStartAlpha, 0f, fadeProgress));
+            if (stateElapsed >= faintEntryFadeDuration)
             {
                 HideImmediately();
             }
@@ -204,7 +200,8 @@ namespace DoNotDraw.World
             }
 
             apparitionRenderer.GetPropertyBlock(propertyBlock);
-            propertyBlock.SetFloat(ApparitionAlphaId, Mathf.Clamp01(alpha));
+            currentAlpha = Mathf.Clamp01(alpha);
+            propertyBlock.SetFloat(ApparitionAlphaId, currentAlpha);
             apparitionRenderer.SetPropertyBlock(propertyBlock);
         }
 
@@ -217,6 +214,7 @@ namespace DoNotDraw.World
         {
             state = AppearanceState.Hidden;
             stateElapsed = 0f;
+            fadeStartAlpha = 0f;
             scriptedLocalOffset = Vector3.zero;
             if (apparitionRenderer == null)
             {
@@ -243,9 +241,7 @@ namespace DoNotDraw.World
         private void OnValidate()
         {
             faintAlpha = Mathf.Clamp01(faintAlpha);
-            faintFadeInDuration = Mathf.Max(0.01f, faintFadeInDuration);
-            faintHoldDuration = Mathf.Max(0f, faintHoldDuration);
-            faintFadeOutDuration = Mathf.Max(0.01f, faintFadeOutDuration);
+            faintEntryFadeDuration = Mathf.Max(0.01f, faintEntryFadeDuration);
             scriptedLungeDistance = Mathf.Max(0f, scriptedLungeDistance);
             scriptedLungeDuration = Mathf.Max(0.01f, scriptedLungeDuration);
             scriptedHoldDuration = Mathf.Max(0f, scriptedHoldDuration);

@@ -26,13 +26,11 @@ namespace DoNotDraw.UI
         [Header("Audio Sources")]
         [SerializeField] private AudioSource presenceSource;
         [SerializeField] private AudioSource growlSource;
-        [SerializeField] private AudioSource riserSource;
         [SerializeField] private AudioSource heartbeatSource;
 
         [Header("Audio Clips")]
         [SerializeField] private AudioClip multiPresenceClip;
         [SerializeField] private AudioClip growlClip;
-        [SerializeField] private AudioClip climaxRiserClip;
         [SerializeField] private AudioClip climaxHeartbeatClip;
 
         [Header("Peripheral Haunting")]
@@ -164,7 +162,6 @@ namespace DoNotDraw.UI
             fadeStartPresenceVolume = presenceLogicalVolume;
             fadeStartGrowlVolume = growlLogicalVolume;
             fadeStartHeartbeatVolume = heartbeatLogicalVolume;
-            riserSource?.Stop();
         }
 
         private void UpdatePeripheral(float now, float deltaTime)
@@ -272,14 +269,6 @@ namespace DoNotDraw.UI
             StartLoop(heartbeatSource, climaxHeartbeatClip);
             growlLogicalVolume = 0.13f;
             heartbeatLogicalVolume = 0.1f;
-            if (riserSource != null && climaxRiserClip != null)
-            {
-                riserSource.Stop();
-                riserSource.clip = climaxRiserClip;
-                riserSource.loop = false;
-                riserSource.volume = 0.72f * BgmVolume.Scale;
-                riserSource.Play();
-            }
         }
 
         private void ShowClimaxFace(float now, float progress)
@@ -325,7 +314,6 @@ namespace DoNotDraw.UI
             presenceSource?.Stop();
             growlSource?.Stop();
             heartbeatSource?.Stop();
-            riserSource?.Stop();
             ClimaxHardCut?.Invoke();
         }
 
@@ -377,10 +365,6 @@ namespace DoNotDraw.UI
             {
                 heartbeatSource.volume = heartbeatLogicalVolume * BgmVolume.Scale;
             }
-            if (riserSource != null && riserSource.isPlaying)
-            {
-                riserSource.volume = 0.72f * BgmVolume.Scale;
-            }
         }
 
         private void EnsureRuntimeMaterial()
@@ -413,7 +397,6 @@ namespace DoNotDraw.UI
         {
             ConfigureAudioSource(presenceSource, true);
             ConfigureAudioSource(growlSource, true);
-            ConfigureAudioSource(riserSource, false);
             ConfigureAudioSource(heartbeatSource, true);
         }
 
@@ -465,7 +448,6 @@ namespace DoNotDraw.UI
             ClimaxIntensity = 0f;
             presenceSource?.Stop();
             growlSource?.Stop();
-            riserSource?.Stop();
             heartbeatSource?.Stop();
             ApplyMaterialState();
             ApplyLoopVolumes();

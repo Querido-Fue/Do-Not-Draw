@@ -3457,7 +3457,7 @@ Transform:
   m_GameObject: {fileID: 337555725}
   serializedVersion: 2
   m_LocalRotation: {x: 0.7071068, y: -0, z: -0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 2.72, z: 0.55}
+  m_LocalPosition: {x: 0, y: 2.72, z: 0.92}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -8368,7 +8368,6 @@ RectTransform:
   - {fileID: 597741751}
   - {fileID: 155572535}
   - {fileID: 296320500}
-  - {fileID: 2006912785}
   - {fileID: 732970992}
   m_Father: {fileID: 2100917275}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -8394,11 +8393,9 @@ MonoBehaviour:
   faceTexture: {fileID: 2800000, guid: 652b1d14152d3844586c6223d3503d74, type: 3}
   presenceSource: {fileID: 155572536}
   growlSource: {fileID: 296320501}
-  riserSource: {fileID: 2006912786}
   heartbeatSource: {fileID: 732970993}
   multiPresenceClip: {fileID: 8300000, guid: a2a96c9082a297d4a8e32e269df7c539, type: 3}
   growlClip: {fileID: 8300000, guid: 4741cddfa9daab54ea212e15e21205da, type: 3}
-  climaxRiserClip: {fileID: 8300000, guid: 9525f1b39a25e4f41b5ce37008b4145a, type: 3}
   climaxHeartbeatClip: {fileID: 8300000, guid: f6e0fd96cc160d8478c2ae82436ccbac, type: 3}
   firstAppearanceDelay: {x: 2, y: 4}
   initialRepeatDelay: {x: 3, y: 7}
@@ -9648,10 +9645,8 @@ MonoBehaviour:
   viewer: {fileID: 726065130}
   apparitionRenderer: {fileID: 208684573}
   faintAlpha: 0.14
-  faintFadeInDuration: 0.04
-  faintHoldDuration: 0.05
-  faintFadeOutDuration: 0.13
-  scriptedLungeDistance: 0.24
+  faintEntryFadeDuration: 1.4
+  scriptedLungeDistance: 0.38
   scriptedLungeDuration: 0.12
   scriptedHoldDuration: 0.24
   scriptedFadeDuration: 0.46
@@ -18014,7 +18009,6 @@ MonoBehaviour:
   secondDoorCover: {fileID: 630310818}
   windowVision: {fileID: 341452227}
   endingPortraitSilhouette: {fileID: 1474703202}
-  firstRoomWindowWatcher: {fileID: 861133568}
   secondRoomWindowWatcher: {fileID: 1913424138}
   endingFaceInfestation: {fileID: 1983726690}
   lampLight: {fileID: 969923932}
@@ -21142,10 +21136,8 @@ MonoBehaviour:
   viewer: {fileID: 726065130}
   apparitionRenderer: {fileID: 914584962}
   faintAlpha: 0.14
-  faintFadeInDuration: 0.04
-  faintHoldDuration: 0.05
-  faintFadeOutDuration: 0.13
-  scriptedLungeDistance: 0.24
+  faintEntryFadeDuration: 1.4
+  scriptedLungeDistance: 0.38
   scriptedLungeDuration: 0.12
   scriptedHoldDuration: 0.24
   scriptedFadeDuration: 0.46
@@ -21941,135 +21933,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1998077041}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
---- !u!1 &2006912784
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2006912785}
-  - component: {fileID: 2006912786}
-  m_Layer: 0
-  m_Name: Climax Riser Audio
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &2006912785
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2006912784}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 742960222}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!82 &2006912786
-AudioSource:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2006912784}
-  m_Enabled: 1
-  serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
-  m_audioClip: {fileID: 0}
-  m_Resource: {fileID: 0}
-  m_PlayOnAwake: 0
-  m_Volume: 0
-  m_Pitch: 1
-  Loop: 0
-  Mute: 0
-  Spatialize: 0
-  SpatializePostEffects: 0
-  Priority: 130
-  DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
-  Pan2D: 0
-  rolloffMode: 0
-  BypassEffects: 0
-  BypassListenerEffects: 0
-  BypassReverbZones: 1
-  rolloffCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  panLevelCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  spreadCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  reverbZoneMixCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
 --- !u!1 &2010751417
 GameObject:
   m_ObjectHideFlags: 0
