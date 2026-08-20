@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using DoNotDraw.Audio;
 using DoNotDraw.Interaction;
 using UnityEngine;
 
@@ -60,7 +61,7 @@ namespace DoNotDraw.World
             if (audioSource != null && stateSound != null)
             {
                 audioSource.pitch = 1f;
-                audioSource.PlayOneShot(stateSound, volume);
+                audioSource.PlayOneShot(stateSound, volume * SfxVolume.Scale);
             }
 
             if (animationRoutine != null)

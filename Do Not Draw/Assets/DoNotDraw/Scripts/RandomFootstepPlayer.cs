@@ -95,7 +95,7 @@ namespace DoNotDraw.Audio
 
             lastClipIndex = clipIndex;
             audioSource.pitch = Random.Range(pitchRange.x, pitchRange.y);
-            audioSource.PlayOneShot(clip, volume);
+            audioSource.PlayOneShot(clip, volume * SfxVolume.Scale);
         }
 
         public void SetAlternateSurface(bool alternate)

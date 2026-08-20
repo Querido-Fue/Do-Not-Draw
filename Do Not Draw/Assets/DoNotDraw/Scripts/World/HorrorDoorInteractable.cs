@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using DoNotDraw.Audio;
 using DoNotDraw.Interaction;
 using UnityEngine;
 
@@ -135,7 +136,7 @@ namespace DoNotDraw.World
             isMoving = true;
             if (audioSource != null && clip != null)
             {
-                audioSource.PlayOneShot(clip, volume);
+                audioSource.PlayOneShot(clip, volume * SfxVolume.Scale);
             }
 
             Quaternion start = pivot.localRotation;
@@ -195,7 +196,7 @@ namespace DoNotDraw.World
         {
             if (audioSource != null && clip != null)
             {
-                audioSource.PlayOneShot(clip, volume * 0.7f);
+                audioSource.PlayOneShot(clip, volume * 0.7f * SfxVolume.Scale);
             }
         }
 

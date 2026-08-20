@@ -43,15 +43,15 @@
     <UnityVersion>6000.5.8f1</UnityVersion>
   </PropertyGroup>
   <ItemGroup>
-    <Analyzer Include="C:\Users\maengjinu\.vscode\extensions\visualstudiotoolsforunity.vstuc-1.3.1\Analyzers\Microsoft.Unity.Analyzers.dll" />
+    <Analyzer Include="C:\Users\parkjunesung\.vscode\extensions\visualstudiotoolsforunity.vstuc-1.3.1\Analyzers\Microsoft.Unity.Analyzers.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.5.8f1\Editor\Data\Tools\BuildPipeline\Unity.SourceGenerators\Unity.SourceGenerators.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.5.8f1\Editor\Data\Tools\BuildPipeline\Unity.SourceGenerators\Unity.Properties.SourceGenerator.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.5.8f1\Editor\Data\Tools\BuildPipeline\Unity.SourceGenerators\Unity.UIToolkit.SourceGenerator.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.5.8f1\Editor\Data\Tools\BuildPipeline\Unity.Analyzers.Common\Unity.Analyzers.Common.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.5.8f1\Editor\Data\Tools\BuildPipeline\Unity.Analyzers.LongLiving\Unity.Analyzers.LongLiving.dll" />
-    <Analyzer Include="C:\UnityProject\Do-Not-Draw\Do Not Draw\Library\PackageCache\com.unity.ai.inference@9a123aee5df7\Runtime\Core\SourceGenerator\SourceGenerators.dll" />
-    <Analyzer Include="C:\UnityProject\Do-Not-Draw\Do Not Draw\Library\PackageCache\com.unity.dt.app-ui@b097002a00c2\Runtime\SourceGenerators\netstandard2.0\EnumToLowerCase.dll" />
-    <Analyzer Include="C:\UnityProject\Do-Not-Draw\Do Not Draw\Library\PackageCache\com.unity.dt.app-ui@b097002a00c2\Runtime\MVVM\SourceGenerators\netstandard2.0\MVVMSourceGenerators.dll" />
+    <Analyzer Include="C:\Users\parkjunesung\Desktop\projects\unity_projects\DND\Do Not Draw\Library\PackageCache\com.unity.ai.inference@9a123aee5df7\Runtime\Core\SourceGenerator\SourceGenerators.dll" />
+    <Analyzer Include="C:\Users\parkjunesung\Desktop\projects\unity_projects\DND\Do Not Draw\Library\PackageCache\com.unity.dt.app-ui@b097002a00c2\Runtime\SourceGenerators\netstandard2.0\EnumToLowerCase.dll" />
+    <Analyzer Include="C:\Users\parkjunesung\Desktop\projects\unity_projects\DND\Do Not Draw\Library\PackageCache\com.unity.dt.app-ui@b097002a00c2\Runtime\MVVM\SourceGenerators\netstandard2.0\MVVMSourceGenerators.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.5.8f1\Editor\Data\BCLExtensions\TargetingPacks\netstandard2.1\analyzers\dotnet\roslyn4.0\cs\Microsoft.Extensions.Logging.Generators.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.5.8f1\Editor\Data\BCLExtensions\TargetingPacks\netstandard2.1\analyzers\dotnet\roslyn4.0\cs\System.Text.Json.SourceGeneration.dll" />
   </ItemGroup>
@@ -73,8 +73,10 @@
     <Compile Include="Assets\DoNotDraw\Scripts\Interaction\PlayerInteractionRouter.cs" />
     <Compile Include="Assets\DoNotDraw\Scripts\World\ClosedRoomStoryDirector.cs" />
     <Compile Include="Assets\DoNotDraw\Scripts\Title\SettingPopupManager.cs" />
+    <Compile Include="Assets\DoNotDraw\Scripts\BgmVolume.cs" />
     <Compile Include="Assets\DoNotDraw\Scripts\World\HorrorDoorInteractable.cs" />
     <Compile Include="Assets\StarterAssets\Mobile\Scripts\Utilities\MobileDisableAutoSwitchControls.cs" />
+    <Compile Include="Assets\DoNotDraw\Scripts\UI\CardSubtitlePresenter.cs" />
     <Compile Include="Assets\DoNotDraw\Scripts\Narrative\StorySignal.cs" />
     <Compile Include="Assets\StarterAssets\FirstPersonController\Scripts\FirstPersonController.cs" />
     <Compile Include="Assets\DoNotDraw\Scripts\Narrative\StoryFactSetter.cs" />
@@ -85,6 +87,7 @@
     <Compile Include="Assets\StarterAssets\Mobile\Scripts\VirtualInputs\UIVirtualButton.cs" />
     <Compile Include="Assets\TutorialInfo\Scripts\Readme.cs" />
     <Compile Include="Assets\DoNotDraw\Scripts\World\NarrativeZoneTrigger.cs" />
+    <Compile Include="Assets\DoNotDraw\Scripts\SfxVolume.cs" />
     <Compile Include="Assets\DoNotDraw\Scripts\RandomFootstepPlayer.cs" />
     <Compile Include="Assets\DoNotDraw\Scripts\Narrative\StoryCondition.cs" />
     <Compile Include="Assets\StarterAssets\FirstPersonController\Scripts\BasicRigidBodyPush.cs" />

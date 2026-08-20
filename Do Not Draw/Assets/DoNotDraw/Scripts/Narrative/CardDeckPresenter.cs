@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using DoNotDraw.Audio;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -471,7 +472,7 @@ namespace DoNotDraw.Narrative
         {
             if (audioSource != null && clip != null)
             {
-                audioSource.PlayOneShot(clip, volume);
+                audioSource.PlayOneShot(clip, volume * SfxVolume.Scale);
             }
         }
 

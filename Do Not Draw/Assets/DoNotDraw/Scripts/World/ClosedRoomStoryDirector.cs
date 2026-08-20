@@ -178,6 +178,12 @@ namespace DoNotDraw.World
         private float primaryLightBase;
         private float secondLightBase;
         private float initialAmbientVolume;
+        private float ambientLogicalVolume;
+        private float clockLogicalVolume;
+        private float rearLogicalVolume;
+        private float threatLogicalVolume;
+        private float transitionLogicalVolume;
+        private float windLogicalVolume;
         private float initialCameraFov;
         private float initialLampColorTemperature;
         private float initialSecondLampColorTemperature;
@@ -269,6 +275,8 @@ namespace DoNotDraw.World
             initialReflectionIntensity = RenderSettings.reflectionIntensity;
             ambientLightingCached = true;
             initialAmbientVolume = ambientSource != null ? ambientSource.volume : 0f;
+            ambientLogicalVolume = initialAmbientVolume;
+            clockLogicalVolume = clockSource != null ? clockSource.volume : 0f;
             initialCameraFov = playerCamera != null ? playerCamera.fieldOfView : 60f;
             baseViewLocalPosition = playerView != null ? playerView.localPosition : Vector3.zero;
             initialViewLocalRotation = playerView != null ? playerView.localRotation : Quaternion.identity;
@@ -343,6 +351,7 @@ namespace DoNotDraw.World
 
         private void Update()
         {
+            ApplyBgmVolumeToLoopingSources();
             UpdateAmbientDetails();
             UpdateLampFlicker();
             UpdateRearLookRule();
@@ -350,6 +359,50 @@ namespace DoNotDraw.World
             UpdateThreat();
             UpdateTurnTest();
             UpdateExitCamera();
+        }
+
+        // 오디오소스별로 "원래 의도한(스케일 전) 볼륨"을 logicalVolume에 저장해 두고
+        // 실제 AudioSource.volume에는 여기에 BgmVolume.Scale을 곱한 값만 반영합니다.
+        // 이 소스들(ambient/clock/rear/threat/transition/wind)은 전부 루프/지속 재생용
+        // 배경 사운드 채널이라 SFX가 아닌 BGM 슬라이더를 따라갑니다. 설정 팝업에서
+        // BGM 슬라이더를 바꾸면 매 프레임 ApplyBgmVolumeToLoopingSources가 재적용하므로
+        // 이미 재생 중인 사운드도 곧바로 볼륨이 따라갑니다.
+        private void SetAudioVolume(AudioSource source, ref float logicalVolume, float value)
+        {
+            logicalVolume = value;
+            if (source != null)
+            {
+                source.volume = value * BgmVolume.Scale;
+            }
+        }
+
+        private void ApplyBgmVolumeToLoopingSources()
+        {
+            float scale = BgmVolume.Scale;
+            if (ambientSource != null)
+            {
+                ambientSource.volume = ambientLogicalVolume * scale;
+            }
+            if (clockSource != null)
+            {
+                clockSource.volume = clockLogicalVolume * scale;
+            }
+            if (rearSource != null)
+            {
+                rearSource.volume = rearLogicalVolume * scale;
+            }
+            if (threatSource != null)
+            {
+                threatSource.volume = threatLogicalVolume * scale;
+            }
+            if (transitionSource != null)
+            {
+                transitionSource.volume = transitionLogicalVolume * scale;
+            }
+            if (windSource != null)
+            {
+                windSource.volume = windLogicalVolume * scale;
+            }
         }
 
         private void LateUpdate()
@@ -568,7 +621,7 @@ namespace DoNotDraw.World
                 rearSource.clip = threatDroneClip;
                 rearSource.loop = true;
                 rearSource.spatialBlend = 0f;
-                rearSource.volume = 0.032f;
+                SetAudioVolume(rearSource, ref rearLogicalVolume, 0.032f);
                 rearSource.Play();
             }
         }
@@ -584,7 +637,7 @@ namespace DoNotDraw.World
             SetLightEnabled(rearDoorRimLight, rimVisible);
             if (rearSource != null)
             {
-                rearSource.volume = Mathf.Lerp(0.032f, 0.063f, Mathf.InverseLerp(90f, 150f, angle));
+                SetAudioVolume(rearSource, ref rearLogicalVolume, Mathf.Lerp(0.032f, 0.063f, Mathf.InverseLerp(90f, 150f, angle)));
             }
             if (angle >= rearImpactAngle && !rearImpactTriggered)
             {
@@ -656,7 +709,7 @@ namespace DoNotDraw.World
                 StartSwitchResidualDarkening();
                 if (ambientSource != null)
                 {
-                    ambientSource.volume = 0f;
+                    SetAudioVolume(ambientSource, ref ambientLogicalVolume, 0f);
                 }
                 clockSource?.Stop();
                 return;
@@ -705,7 +758,7 @@ namespace DoNotDraw.World
 
             if (ambientSource != null)
             {
-                ambientSource.volume = isOn ? initialAmbientVolume : 0f;
+                SetAudioVolume(ambientSource, ref ambientLogicalVolume, isOn ? initialAmbientVolume : 0f);
                 if (isOn && !ambientSource.isPlaying)
                 {
                     ambientSource.Play();
@@ -831,7 +884,7 @@ namespace DoNotDraw.World
             SetCeilingEmissionMultiplier(1f);
             if (ambientSource != null)
             {
-                ambientSource.volume = initialAmbientVolume;
+                SetAudioVolume(ambientSource, ref ambientLogicalVolume, initialAmbientVolume);
                 if (!ambientSource.isPlaying)
                 {
                     ambientSource.Play();
@@ -968,7 +1021,7 @@ namespace DoNotDraw.World
             yield return new WaitForSecondsRealtime(3f);
             if (ambientSource != null)
             {
-                ambientSource.volume = initialAmbientVolume * 0.35f;
+                SetAudioVolume(ambientSource, ref ambientLogicalVolume, initialAmbientVolume * 0.35f);
                 if (!ambientSource.isPlaying)
                 {
                     ambientSource.Play();
@@ -983,7 +1036,7 @@ namespace DoNotDraw.World
             microFlickerPaused = true;
             if (ambientSource != null)
             {
-                ambientSource.volume = 0f;
+                SetAudioVolume(ambientSource, ref ambientLogicalVolume, 0f);
             }
             clockSource?.Stop();
         }
@@ -994,7 +1047,7 @@ namespace DoNotDraw.World
             microFlickerPaused = false;
             if (ambientSource != null)
             {
-                ambientSource.volume = initialAmbientVolume;
+                SetAudioVolume(ambientSource, ref ambientLogicalVolume, initialAmbientVolume);
                 if (!ambientSource.isPlaying)
                 {
                     ambientSource.Play();
@@ -1036,7 +1089,7 @@ namespace DoNotDraw.World
             {
                 transitionSource.clip = whiteNoiseClip;
                 transitionSource.loop = false;
-                transitionSource.volume = 0.18f;
+                SetAudioVolume(transitionSource, ref transitionLogicalVolume, 0.18f);
                 transitionSource.Play();
             }
             yield return new WaitForSecondsRealtime(1.5f);
@@ -1075,23 +1128,23 @@ namespace DoNotDraw.World
             {
                 transitionSource.clip = threatBreathingClip;
                 transitionSource.loop = true;
-                transitionSource.volume = 0f;
+                SetAudioVolume(transitionSource, ref transitionLogicalVolume, 0f);
                 transitionSource.Play();
             }
             float elapsed = 0f;
             const float duration = 3f;
-            float ambientStart = ambientSource != null ? ambientSource.volume : 0f;
+            float ambientStart = ambientSource != null ? ambientLogicalVolume : 0f;
             while (elapsed < duration)
             {
                 elapsed += Time.unscaledDeltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
                 if (ambientSource != null)
                 {
-                    ambientSource.volume = Mathf.Lerp(ambientStart, 0f, t);
+                    SetAudioVolume(ambientSource, ref ambientLogicalVolume, Mathf.Lerp(ambientStart, 0f, t));
                 }
                 if (transitionSource != null)
                 {
-                    transitionSource.volume = Mathf.Lerp(0f, 0.2f, t);
+                    SetAudioVolume(transitionSource, ref transitionLogicalVolume, Mathf.Lerp(0f, 0.2f, t));
                 }
                 yield return null;
             }
@@ -1131,7 +1184,7 @@ namespace DoNotDraw.World
                 threatSource.clip = approachClip;
                 threatSource.loop = true;
                 threatSource.spatialBlend = 1f;
-                threatSource.volume = close ? 0.31f : 0.14f;
+                SetAudioVolume(threatSource, ref threatLogicalVolume, close ? 0.31f : 0.14f);
                 threatSource.Play();
             }
         }
@@ -1162,7 +1215,7 @@ namespace DoNotDraw.World
             if (threatSource != null)
             {
                 threatSource.transform.position = threatSilhouette.position;
-                threatSource.volume = Mathf.Lerp(0.14f, 0.65f, shaped);
+                SetAudioVolume(threatSource, ref threatLogicalVolume, Mathf.Lerp(0.14f, 0.65f, shaped));
             }
         }
 
@@ -1179,7 +1232,7 @@ namespace DoNotDraw.World
         {
             huntActive = false;
             huntHovering = false;
-            float startVolume = threatSource != null ? threatSource.volume : 0f;
+            float startVolume = threatSource != null ? threatLogicalVolume : 0f;
             float elapsed = 0f;
             while (elapsed < duration)
             {
@@ -1192,7 +1245,7 @@ namespace DoNotDraw.World
                 }
                 if (threatSource != null)
                 {
-                    threatSource.volume = Mathf.Lerp(startVolume, 0f, t);
+                    SetAudioVolume(threatSource, ref threatLogicalVolume, Mathf.Lerp(startVolume, 0f, t));
                 }
                 yield return null;
             }
@@ -1221,7 +1274,7 @@ namespace DoNotDraw.World
                 rearSource.clip = threatBreathingClip;
                 rearSource.loop = false;
                 rearSource.spatialBlend = 1f;
-                rearSource.volume = 0.16f;
+                SetAudioVolume(rearSource, ref rearLogicalVolume, 0.16f);
                 rearSource.Play();
             }
             yield return new WaitForSecondsRealtime(1f);
@@ -1268,7 +1321,7 @@ namespace DoNotDraw.World
                     ? playerRoot.position - playerRoot.forward * 1.8f
                     : transform.position;
                 rearSource.spatialBlend = 1f;
-                rearSource.volume = 0.48f;
+                SetAudioVolume(rearSource, ref rearLogicalVolume, 0.48f);
                 rearSource.PlayOneShot(footstepsBehindClip, 0.55f);
                 yield return new WaitForSecondsRealtime(Mathf.Max(2.48f, footstepsBehindClip.length));
             }
@@ -1282,7 +1335,7 @@ namespace DoNotDraw.World
                             ? playerRoot.position - playerRoot.forward * (2.2f - step * 0.35f)
                             : transform.position;
                         rearSource.spatialBlend = 1f;
-                        rearSource.volume = 0.36f + step * 0.04f;
+                        SetAudioVolume(rearSource, ref rearLogicalVolume, 0.36f + step * 0.04f);
                         rearSource.PlayOneShot(floorCreakClip, 0.5f);
                     }
                     yield return new WaitForSecondsRealtime(0.62f);
@@ -1357,7 +1410,7 @@ namespace DoNotDraw.World
             {
                 windSource.clip = windClip;
                 windSource.loop = true;
-                windSource.volume = 0.12f;
+                SetAudioVolume(windSource, ref windLogicalVolume, 0.12f);
                 windSource.Play();
             }
             if (enableClimaxThreat)
@@ -1466,7 +1519,7 @@ namespace DoNotDraw.World
             transitionSource?.Stop();
             if (ambientSource != null)
             {
-                ambientSource.volume = initialAmbientVolume;
+                SetAudioVolume(ambientSource, ref ambientLogicalVolume, initialAmbientVolume);
                 if (!ambientSource.isPlaying)
                 {
                     ambientSource.Play();
@@ -1623,7 +1676,7 @@ namespace DoNotDraw.World
                         ? playerRoot.position + UnityEngine.Random.onUnitSphere * 2f
                         : transform.position;
                     rearSource.spatialBlend = 1f;
-                    rearSource.volume = 0.09f;
+                    SetAudioVolume(rearSource, ref rearLogicalVolume, 0.09f);
                     rearSource.PlayOneShot(floorCreakClip, 0.18f);
                 }
             }
@@ -1784,7 +1837,7 @@ namespace DoNotDraw.World
         {
             if (oneShotSource != null && clip != null)
             {
-                oneShotSource.PlayOneShot(clip, volume);
+                oneShotSource.PlayOneShot(clip, volume * SfxVolume.Scale);
             }
         }
 
