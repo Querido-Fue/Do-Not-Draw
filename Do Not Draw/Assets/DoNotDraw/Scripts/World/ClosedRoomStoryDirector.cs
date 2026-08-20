@@ -1068,6 +1068,7 @@ namespace DoNotDraw.World
                 return;
             }
             secondDoorRuleRevealCount = 0;
+            firstRoomWindowWatcher?.TriggerFaintGlimpse();
             SetFact(secondDoorOpenedFact, true);
             runner?.RequestExternalAdvance();
         }

@@ -9646,19 +9646,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DoNotDraw.World.ImpossibleWindowWatcher
   viewer: {fileID: 726065130}
-  gazeTarget: {fileID: 1764482604}
   apparitionRenderer: {fileID: 208684573}
-  maximumDistance: 8
-  gazeThreshold: 0.955
-  lookAwayGracePeriod: 0.45
-  maximumAlpha: 0.4
-  fadeInDuration: 2.6
-  holdDuration: 1.15
-  fadeOutDuration: 3.1
-  minimumCooldown: 4.5
-  maximumCooldown: 8.5
-  horizontalOffsetRange: {x: -0.1, y: 0.1}
-  verticalOffsetRange: {x: -0.08, y: 0.08}
+  faintAlpha: 0.14
+  faintFadeInDuration: 0.04
+  faintHoldDuration: 0.05
+  faintFadeOutDuration: 0.13
   scriptedLungeDistance: 0.24
   scriptedLungeDuration: 0.12
   scriptedHoldDuration: 0.24
@@ -21148,19 +21140,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DoNotDraw.World.ImpossibleWindowWatcher
   viewer: {fileID: 726065130}
-  gazeTarget: {fileID: 760559673}
   apparitionRenderer: {fileID: 914584962}
-  maximumDistance: 8
-  gazeThreshold: 0.955
-  lookAwayGracePeriod: 0.45
-  maximumAlpha: 0.4
-  fadeInDuration: 2.6
-  holdDuration: 1.15
-  fadeOutDuration: 3.1
-  minimumCooldown: 4.5
-  maximumCooldown: 8.5
-  horizontalOffsetRange: {x: -0.1, y: 0.1}
-  verticalOffsetRange: {x: -0.08, y: 0.08}
+  faintAlpha: 0.14
+  faintFadeInDuration: 0.04
+  faintHoldDuration: 0.05
+  faintFadeOutDuration: 0.13
   scriptedLungeDistance: 0.24
   scriptedLungeDuration: 0.12
   scriptedHoldDuration: 0.24
