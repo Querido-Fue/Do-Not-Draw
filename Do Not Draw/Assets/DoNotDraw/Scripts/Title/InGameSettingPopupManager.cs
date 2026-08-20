@@ -1,7 +1,11 @@
 using DoNotDraw.UI;
+using StarterAssets;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 public class InGameSettingPopupManager : MonoBehaviour
 {
@@ -69,6 +73,37 @@ public class InGameSettingPopupManager : MonoBehaviour
         titleBtn.onClick.AddListener(gotoTitle);
     }
 
+    void Update()
+    {
+        if (TitleButtonClickEvent.IsTitleScreen)
+        {
+            return;
+        }
+
+        if (!EscapePressed())
+        {
+            return;
+        }
+
+        if (popup != null && popup.activeSelf)
+        {
+            disablePopup();
+        }
+        else
+        {
+            enablePopup();
+        }
+    }
+
+    private static bool EscapePressed()
+    {
+#if ENABLE_INPUT_SYSTEM
+        return Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame;
+#else
+        return Input.GetKeyDown(KeyCode.Escape);
+#endif
+    }
+
     public void enablePopup()
     {
         cachedBgmVolume = VolumeManager.Instance.bgmVolume;
@@ -78,12 +113,45 @@ public class InGameSettingPopupManager : MonoBehaviour
         sfxSlider.value = cachedSfxVolume;
 
         popup.SetActive(true);
+
+        SetGameplayInputEnabled(false);
+        ShowCursor();
     }
 
     public void disablePopup()
     {
 
         popup.SetActive(false);
+
+        SetGameplayInputEnabled(true);
+        HideCursor();
+    }
+
+    private static void SetGameplayInputEnabled(bool isEnabled)
+    {
+        FirstPersonController controller = FindAnyObjectByType<FirstPersonController>(FindObjectsInactive.Include);
+        if (controller != null)
+        {
+            controller.enabled = isEnabled;
+        }
+
+        StarterAssetsInputs input = FindAnyObjectByType<StarterAssetsInputs>(FindObjectsInactive.Include);
+        if (input != null)
+        {
+            input.enabled = isEnabled;
+        }
+    }
+
+    private static void ShowCursor()
+    {
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
+
+    private static void HideCursor()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
     }
 
     private void OnBgmSliderChanged(float value)
@@ -113,6 +181,8 @@ public class InGameSettingPopupManager : MonoBehaviour
 
         bgmSlider.value = cachedBgmVolume;
         sfxSlider.value = cachedSfxVolume;
+
+        disablePopup();
     }
     private void gotoTitle()
     {

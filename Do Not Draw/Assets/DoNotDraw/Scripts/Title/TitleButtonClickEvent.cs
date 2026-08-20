@@ -18,10 +18,13 @@ public class TitleButtonClickEvent : MonoBehaviour
     private GameObject gameplayPlayer;
     private bool listenersBound;
 
+    public static bool IsTitleScreen { get; private set; }
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetRuntimeState()
     {
         startGameplayOnNextLoad = false;
+        IsTitleScreen = false;
     }
 
     void Awake()
@@ -104,6 +107,8 @@ public class TitleButtonClickEvent : MonoBehaviour
 
     private void EnterTitleMode()
     {
+        IsTitleScreen = true;
+
         if (gameplayPlayer != null)
         {
             gameplayPlayer.SetActive(false);
@@ -128,6 +133,8 @@ public class TitleButtonClickEvent : MonoBehaviour
 
     private void EnterGameplayMode()
     {
+        IsTitleScreen = false;
+
         if (gameplayCamera != null)
         {
             gameplayCamera.enabled = true;

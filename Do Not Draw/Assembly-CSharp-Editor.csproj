@@ -49,9 +49,9 @@
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.5.8f1\Editor\Data\Tools\BuildPipeline\Unity.SourceGenerators\Unity.UIToolkit.SourceGenerator.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.5.8f1\Editor\Data\Tools\BuildPipeline\Unity.Analyzers.Common\Unity.Analyzers.Common.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.5.8f1\Editor\Data\Tools\BuildPipeline\Unity.Analyzers.LongLiving\Unity.Analyzers.LongLiving.dll" />
-    <Analyzer Include="C:\Users\parkjunesung\Desktop\projects\unity_projects\DND\Do Not Draw\Library\PackageCache\com.unity.ai.inference@9a123aee5df7\Runtime\Core\SourceGenerator\SourceGenerators.dll" />
-    <Analyzer Include="C:\Users\parkjunesung\Desktop\projects\unity_projects\DND\Do Not Draw\Library\PackageCache\com.unity.dt.app-ui@b097002a00c2\Runtime\SourceGenerators\netstandard2.0\EnumToLowerCase.dll" />
-    <Analyzer Include="C:\Users\parkjunesung\Desktop\projects\unity_projects\DND\Do Not Draw\Library\PackageCache\com.unity.dt.app-ui@b097002a00c2\Runtime\MVVM\SourceGenerators\netstandard2.0\MVVMSourceGenerators.dll" />
+    <Analyzer Include="C:\Users\parkjunesung\Desktop\projects\unity_projects\donotdraw\Do Not Draw\Library\PackageCache\com.unity.ai.inference@9a123aee5df7\Runtime\Core\SourceGenerator\SourceGenerators.dll" />
+    <Analyzer Include="C:\Users\parkjunesung\Desktop\projects\unity_projects\donotdraw\Do Not Draw\Library\PackageCache\com.unity.dt.app-ui@b097002a00c2\Runtime\SourceGenerators\netstandard2.0\EnumToLowerCase.dll" />
+    <Analyzer Include="C:\Users\parkjunesung\Desktop\projects\unity_projects\donotdraw\Do Not Draw\Library\PackageCache\com.unity.dt.app-ui@b097002a00c2\Runtime\MVVM\SourceGenerators\netstandard2.0\MVVMSourceGenerators.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.5.8f1\Editor\Data\BCLExtensions\TargetingPacks\netstandard2.1\analyzers\dotnet\roslyn4.0\cs\Microsoft.Extensions.Logging.Generators.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.5.8f1\Editor\Data\BCLExtensions\TargetingPacks\netstandard2.1\analyzers\dotnet\roslyn4.0\cs\System.Text.Json.SourceGeneration.dll" />
   </ItemGroup>
@@ -60,6 +60,7 @@
     <Compile Include="Assets\TutorialInfo\Scripts\Editor\ReadmeEditor.cs" />
     <Compile Include="Assets\DoNotDraw\Editor\Narrative\NarrativeFoundationEditor.cs" />
     <Compile Include="Assets\DoNotDraw\Editor\Final\FinalExperienceBuilder.cs" />
+    <Compile Include="Assets\DoNotDraw\Editor\Narrative\CardImageBindingEditor.cs" />
     <Compile Include="Assets\DoNotDraw\Editor\Final\DetailedRoomSetFactory.cs" />
   </ItemGroup>
   <ItemGroup>
