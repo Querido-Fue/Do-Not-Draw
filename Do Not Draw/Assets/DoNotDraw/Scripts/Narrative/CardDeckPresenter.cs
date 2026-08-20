@@ -130,7 +130,7 @@ namespace DoNotDraw.Narrative
             int column = drawIndex % cardsPerRow;
             int row = drawIndex / cardsPerRow;
             Vector3 endPosition = displayAnchor.position
-                + displayAnchor.right * (column * cardSpread)
+                - displayAnchor.right * (column * cardSpread)
                 - displayAnchor.forward * (row * rowSpread)
                 + displayAnchor.up * (drawIndex * cardLayerSpacing);
             float endYaw = Mathf.Lerp(-7f, 8f, column / (float)Mathf.Max(1, cardsPerRow - 1));
