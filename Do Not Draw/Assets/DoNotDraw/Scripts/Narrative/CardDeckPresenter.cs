@@ -49,8 +49,11 @@ namespace DoNotDraw.Narrative
         private int remainingCards = 1;
         private float deckThicknessMultiplier = 1f;
         private bool visualStateCached;
+        private bool isPresenting;
+        private bool presentationBlocked;
+        private int nextLayoutIndexOverride = -1;
 
-        public bool IsPresenting { get; private set; }
+        public bool IsPresenting => isPresenting || presentationBlocked;
         public int RemainingCards => remainingCards;
         public GameObject LatestCard => runtimeCards.Count > 0 ? runtimeCards[runtimeCards.Count - 1] : null;
         public Transform DisplayAnchor => displayAnchor;
@@ -70,7 +73,9 @@ namespace DoNotDraw.Narrative
         public void ResetPresentation(int deckSize)
         {
             StopAllCoroutines();
-            IsPresenting = false;
+            isPresenting = false;
+            presentationBlocked = false;
+            nextLayoutIndexOverride = -1;
             ClearRuntimeCards();
             CacheInitialVisualState();
 
@@ -97,9 +102,15 @@ namespace DoNotDraw.Narrative
                 return false;
             }
 
+            int layoutIndex = nextLayoutIndexOverride >= 0
+                ? nextLayoutIndexOverride
+                : Mathf.Max(0, drawIndex);
+            nextLayoutIndexOverride = -1;
+
             StartCoroutine(PresentCardRoutine(
                 definition,
                 Mathf.Max(0, drawIndex),
+                layoutIndex,
                 revealed,
                 presentationFinished));
             return true;
@@ -108,10 +119,11 @@ namespace DoNotDraw.Narrative
         private IEnumerator PresentCardRoutine(
             CardDefinition definition,
             int drawIndex,
+            int layoutIndex,
             Action<GameObject> revealed,
             Action presentationFinished)
         {
-            IsPresenting = true;
+            isPresenting = true;
 
             GameObject card = Instantiate(cardTemplate, drawnCardParent);
             card.name = $"Drawn Card {drawIndex + 1:00}";
@@ -123,12 +135,12 @@ namespace DoNotDraw.Narrative
             Vector3 startPosition = deckTop.position + deckTop.up * 0.012f;
             Quaternion startRotation = deckTop.rotation * Quaternion.Euler(0f, 0f, 180f);
 
-            int column = drawIndex % cardsPerRow;
-            int row = drawIndex / cardsPerRow;
+            int column = layoutIndex % cardsPerRow;
+            int row = layoutIndex / cardsPerRow;
             Vector3 endPosition = displayAnchor.position
                 - displayAnchor.right * (column * cardSpread)
                 - displayAnchor.forward * (row * rowSpread)
-                + displayAnchor.up * (drawIndex * cardLayerSpacing);
+                + displayAnchor.up * (layoutIndex * cardLayerSpacing);
             float endYaw = Mathf.Lerp(-7f, 8f, column / (float)Mathf.Max(1, cardsPerRow - 1));
             Quaternion endRotation = displayAnchor.rotation * Quaternion.Euler(0f, endYaw, 0f);
 
@@ -177,8 +189,18 @@ namespace DoNotDraw.Narrative
                 yield return new WaitForSeconds(voiceClip.length);
             }
 
-            IsPresenting = false;
+            isPresenting = false;
             presentationFinished?.Invoke();
+        }
+
+        public void SetPresentationBlocked(bool blocked)
+        {
+            presentationBlocked = blocked;
+        }
+
+        public void ResetNextCardLayoutOffset()
+        {
+            nextLayoutIndexOverride = 0;
         }
 
         public void SetVoiceNarrationEnabled(bool enabled)

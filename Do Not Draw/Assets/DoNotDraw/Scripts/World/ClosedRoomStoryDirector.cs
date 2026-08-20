@@ -6,6 +6,7 @@ using DoNotDraw.Interaction;
 using DoNotDraw.Narrative;
 using DoNotDraw.UI;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace DoNotDraw.World
 {
@@ -52,6 +53,7 @@ namespace DoNotDraw.World
     {
         private const float EndingDurationSeconds = 5f;
         private const float EndingFadeSeconds = 1f;
+        private const float EndingTransitionFadeSeconds = 1f;
         private const float WindowCardScareDelaySeconds = 0.2f;
         private const float WindowCardScareDurationSeconds = 0.86f;
         private static readonly int CeilingEmissionColorId = Shader.PropertyToID("_Emission_Color");
@@ -200,6 +202,7 @@ namespace DoNotDraw.World
         private RandomFootstepPlayer playerFootsteps;
         private AudioListener playerAudioListener;
         private AudioListener endingTopViewAudioListener;
+        private Graphic screenFadeGraphic;
         private Renderer[] playerVisualRenderers = Array.Empty<Renderer>();
         private bool[] initialPlayerVisualRendererStates = Array.Empty<bool>();
         private float initialLampIntensity;
@@ -220,6 +223,7 @@ namespace DoNotDraw.World
         private float initialSecondLampColorTemperature;
         private Color initialLampColor;
         private Color initialSecondLampColor;
+        private Color initialScreenFadeColor = Color.black;
         private Color initialAmbientLight;
         private Color initialAmbientSkyColor;
         private Color initialAmbientEquatorColor;
@@ -283,6 +287,7 @@ namespace DoNotDraw.World
         private Coroutine sensoryRoutine;
         private Coroutine turnRoutine;
         private Coroutine endingRoutine;
+        private Coroutine endingTransitionRoutine;
         private Coroutine presenterSwitchRoutine;
         private Coroutine ambientDarkeningRoutine;
         private Coroutine exitWindPulseRoutine;
@@ -314,6 +319,13 @@ namespace DoNotDraw.World
             endingTopViewAudioListener = endingTopViewCamera != null
                 ? endingTopViewCamera.GetComponent<AudioListener>()
                 : null;
+            screenFadeGraphic = screenFade != null
+                ? screenFade.GetComponentInChildren<Graphic>(true)
+                : null;
+            if (screenFadeGraphic != null)
+            {
+                initialScreenFadeColor = screenFadeGraphic.color;
+            }
             CachePlayerVisualState();
 
             float sourceLampIntensity = lampLight != null ? lampLight.intensity : 1f;
@@ -355,7 +367,7 @@ namespace DoNotDraw.World
                 : initialCameraFov;
             initialEndingTopViewOrthographicSize = endingTopViewCamera != null
                 ? endingTopViewCamera.orthographicSize
-                : 3.05f;
+                : 2.65f;
             baseViewLocalPosition = playerView != null ? playerView.localPosition : Vector3.zero;
             initialViewLocalRotation = playerView != null ? playerView.localRotation : Quaternion.identity;
             threatBaseScale = threatSilhouette != null ? threatSilhouette.localScale : Vector3.one;
@@ -394,6 +406,14 @@ namespace DoNotDraw.World
 
         private void OnDisable()
         {
+            if (endingTransitionRoutine != null)
+            {
+                StopCoroutine(endingTransitionRoutine);
+                endingTransitionRoutine = null;
+            }
+            endingRoutine = null;
+            primaryPresenter?.SetPresentationBlocked(false);
+            secondRoomPresenter?.SetPresentationBlocked(false);
             if (windowCardScareRoutine != null)
             {
                 StopCoroutine(windowCardScareRoutine);
@@ -442,6 +462,12 @@ namespace DoNotDraw.World
             RestoreAmbientLighting();
             SetCeilingEmissionMultiplier(1f);
             ResetHorrorPerceptionState();
+            if (screenFade != null)
+            {
+                screenFade.alpha = 0f;
+                screenFade.blocksRaycasts = false;
+            }
+            RestoreScreenFadeColor();
             presenterSwitchRoutine = null;
         }
 
@@ -543,6 +569,18 @@ namespace DoNotDraw.World
 
         private void ResetSceneState()
         {
+            if (endingTransitionRoutine != null)
+            {
+                StopCoroutine(endingTransitionRoutine);
+                endingTransitionRoutine = null;
+            }
+            if (endingRoutine != null)
+            {
+                StopCoroutine(endingRoutine);
+                endingRoutine = null;
+            }
+            primaryPresenter?.SetPresentationBlocked(false);
+            secondRoomPresenter?.SetPresentationBlocked(false);
             if (windowCardScareRoutine != null)
             {
                 StopCoroutine(windowCardScareRoutine);
@@ -620,6 +658,7 @@ namespace DoNotDraw.World
                 screenFade.blocksRaycasts = false;
                 screenFade.interactable = false;
             }
+            RestoreScreenFadeColor();
             nextClockTick = Time.unscaledTime + 1f;
             nextFloorCreak = Time.unscaledTime + UnityEngine.Random.Range(15f, 20f);
         }
@@ -705,14 +744,13 @@ namespace DoNotDraw.World
                     OpenExit();
                     break;
                 case ClosedRoomCue.PrepareEnding:
-                    PrepareEndingReset();
+                    BeginEndingTransition();
                     break;
                 case ClosedRoomCue.ShowEnding:
-                    if (endingRoutine != null)
+                    if (endingRoutine == null)
                     {
-                        StopCoroutine(endingRoutine);
+                        endingRoutine = StartCoroutine(EndingZoomRoutine());
                     }
-                    endingRoutine = StartCoroutine(EndingZoomRoutine());
                     break;
                 case ClosedRoomCue.CloseSecondDoorOnLook:
                     secondDoor?.CloseWithSlam();
@@ -1938,12 +1976,104 @@ namespace DoNotDraw.World
             {
                 return;
             }
-            SetPlayerVisualsVisible(false);
-            SetEndingTopViewActive(true);
             CancelExitPressure(true);
             endingZone?.SetTriggerEnabled(false);
             SetFact(leftRoomFact, true);
             runner?.RequestExternalAdvance();
+        }
+
+        private void BeginEndingTransition()
+        {
+            if (endingTransitionRoutine != null)
+            {
+                return;
+            }
+
+            endingActive = true;
+            if (movementController != null)
+            {
+                movementController.enabled = false;
+            }
+            if (playerFootsteps != null)
+            {
+                playerFootsteps.enabled = false;
+            }
+            primaryPresenter?.SetPresentationBlocked(true);
+            secondRoomPresenter?.SetPresentationBlocked(true);
+
+            if (endingRoutine != null)
+            {
+                StopCoroutine(endingRoutine);
+                endingRoutine = null;
+            }
+            endingTransitionRoutine = StartCoroutine(EndingTransitionRoutine());
+        }
+
+        private IEnumerator EndingTransitionRoutine()
+        {
+            if (screenFade == null)
+            {
+                PrepareEndingReset();
+                endingRoutine = StartCoroutine(EndingZoomRoutine());
+                yield return null;
+                endingTransitionRoutine = null;
+                yield break;
+            }
+
+            SetScreenFadeColor(Color.white);
+            screenFade.blocksRaycasts = true;
+            screenFade.interactable = false;
+            yield return FadeScreenAlpha(1f, EndingTransitionFadeSeconds);
+
+            screenFade.alpha = 1f;
+            PrepareEndingReset();
+            endingRoutine = StartCoroutine(EndingZoomRoutine());
+            yield return FadeScreenAlpha(0f, EndingTransitionFadeSeconds);
+
+            screenFade.alpha = 0f;
+            screenFade.blocksRaycasts = false;
+            RestoreScreenFadeColor();
+            endingTransitionRoutine = null;
+        }
+
+        private IEnumerator FadeScreenAlpha(float targetAlpha, float duration)
+        {
+            float startAlpha = screenFade != null ? screenFade.alpha : targetAlpha;
+            float elapsed = 0f;
+            float safeDuration = Mathf.Max(0.01f, duration);
+            while (elapsed < safeDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / safeDuration);
+                t = t * t * (3f - 2f * t);
+                if (screenFade != null)
+                {
+                    screenFade.alpha = Mathf.Lerp(startAlpha, targetAlpha, t);
+                }
+                yield return null;
+            }
+            if (screenFade != null)
+            {
+                screenFade.alpha = targetAlpha;
+            }
+        }
+
+        private void SetScreenFadeColor(Color color)
+        {
+            if (screenFadeGraphic == null)
+            {
+                return;
+            }
+            color.a = initialScreenFadeColor.a;
+            screenFadeGraphic.color = color;
+        }
+
+        private void RestoreScreenFadeColor()
+        {
+            if (screenFadeGraphic != null)
+            {
+                screenFadeGraphic.color = initialScreenFadeColor;
+            }
         }
 
         private void PrepareEndingReset()
@@ -2035,17 +2165,15 @@ namespace DoNotDraw.World
             {
                 int deckSize = runner.Sequence != null ? runner.Sequence.VisualDeckSize : 48;
                 primaryPresenter.ResetPresentation(Mathf.Max(48, deckSize));
+                primaryPresenter.ResetNextCardLayoutOffset();
                 primaryPresenter.SetDeckThicknessMultiplier(3.7f);
                 runner.SetPresenter(primaryPresenter, false);
             }
+            primaryPresenter?.SetPresentationBlocked(false);
+            secondRoomPresenter?.SetPresentationBlocked(false);
             if (playerCamera != null)
             {
                 playerCamera.fieldOfView = initialCameraFov;
-            }
-            if (screenFade != null)
-            {
-                screenFade.alpha = 0f;
-                screenFade.blocksRaycasts = false;
             }
         }
 
@@ -2082,7 +2210,8 @@ namespace DoNotDraw.World
                     }
                 }
 
-                if (screenFade != null)
+                if (screenFade != null
+                    && elapsed >= EndingDurationSeconds - EndingFadeSeconds)
                 {
                     float fade = Mathf.InverseLerp(
                         EndingDurationSeconds - EndingFadeSeconds,
