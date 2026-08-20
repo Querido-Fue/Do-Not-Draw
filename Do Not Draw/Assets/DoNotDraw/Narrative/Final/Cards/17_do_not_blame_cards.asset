@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: 17_do_not_blame_cards
   m_EditorClassIdentifier: Assembly-CSharp::DoNotDraw.Narrative.CardDefinition
   stableId: final.card.do_not_blame_cards
-  displayName: DO NOT BLAME THE CARDS.
-  faceText: DO NOT BLAME THE CARDS.
-  faceTexture: {fileID: 0}
+  displayName: Do NoT bLamE The CarDS
+  faceText: Do NoT bLamE The CarDS
+  faceTexture: {fileID: 2800000, guid: ddbd7f17bfbef1e439ca9026a051e9aa, type: 3}
   faceAccentMaterial: {fileID: 2100000, guid: b9160984b09414d40a89c3d4461c8eab, type: 2}
   faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}
   drawSoundOverride: {fileID: 0}

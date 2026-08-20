@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: 03_do_not_turn_off_light
   m_EditorClassIdentifier: Assembly-CSharp::DoNotDraw.Narrative.CardDefinition
   stableId: final.card.do_not_turn_off_light
-  displayName: DO NOT TURN OFF THE LIGHT.
-  faceText: DO NOT TURN OFF THE LIGHT.
+  displayName: Do Not Turn Off The Light
+  faceText: Do Not Turn Off The Light
   faceTexture: {fileID: 2800000, guid: 5f75df6142c06b7449d04a95bcf72d08, type: 3}
   faceAccentMaterial: {fileID: 2100000, guid: b9160984b09414d40a89c3d4461c8eab, type: 2}
   faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}

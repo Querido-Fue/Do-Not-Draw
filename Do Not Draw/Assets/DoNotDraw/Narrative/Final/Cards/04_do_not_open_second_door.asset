@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: 04_do_not_open_second_door
   m_EditorClassIdentifier: Assembly-CSharp::DoNotDraw.Narrative.CardDefinition
   stableId: final.card.do_not_open_second_door
-  displayName: DO NOT OPEN THE SECOND DOOR.
-  faceText: DO NOT OPEN THE SECOND DOOR.
-  faceTexture: {fileID: 2800000, guid: cee94113cae09c942ac755e312091320, type: 3}
+  displayName: Do NoT OPen thE DooR
+  faceText: Do NoT OPen thE DooR
+  faceTexture: {fileID: 2800000, guid: 1bcebf9f4b8c3bc4b9ad6de2ebe61776, type: 3}
   faceAccentMaterial: {fileID: 2100000, guid: 9c1bc92ef35503245893d06d3fd174c0, type: 2}
   faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}
   drawSoundOverride: {fileID: 0}

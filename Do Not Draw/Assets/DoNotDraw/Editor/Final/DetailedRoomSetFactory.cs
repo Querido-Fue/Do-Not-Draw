@@ -55,6 +55,17 @@ namespace DoNotDraw.Narrative.Editor
         private const float SecondDoorX = 2f;
         private const float DoorWidth = 1f;
         private const float DoorHeight = 2.3f;
+        private const float WallThickness = 0.18f;
+        private const float DeskDepth = 1f;
+        private const float OriginalDeskWindowGap =
+            NorthWallZ - WallThickness * 0.5f - DeskDepth * 0.5f;
+        private const float DeskWindowGap = OriginalDeskWindowGap * 0.5f;
+        private const float FirstDeskCenterZ =
+            NorthWallZ - WallThickness * 0.5f - DeskDepth * 0.5f - DeskWindowGap;
+        private const float DeskWindowBlockerWidth = 2.4f;
+        private const float DeskWindowBlockerOverlap = 0.08f;
+        private const float OpeningPlayerStartX = 2.25f;
+        private const float OpeningPlayerStartZ = -1.75f;
         private const string PreplacedCardTexturePath =
             "Assets/Art/Card/Card3_DoNotOpenTheSecondDoor.png";
         private const string PreplacedCardMaterialPath =
@@ -95,6 +106,7 @@ namespace DoNotDraw.Narrative.Editor
 
             DetailedRoomSetRefs refs = new DetailedRoomSetRefs();
             RemoveChildrenNamed(originalDesk.transform, "Back Apron");
+            RemoveChildrenNamed(originalDesk.transform, "Desk Window Access Blocker");
             refs.FirstRoomSet = new GameObject("First Room - 6x4.8 Backrooms");
             refs.FirstRoomSet.transform.SetParent(parent, false);
             refs.SecondRoomSet = new GameObject("Second Room - Mirrored 6x4.8 Backrooms");
@@ -122,7 +134,7 @@ namespace DoNotDraw.Narrative.Editor
                 ceilingGrid,
                 wallTrim);
 
-            originalDesk.transform.position = Vector3.zero;
+            originalDesk.transform.position = new Vector3(0f, 0f, FirstDeskCenterZ);
             originalDesk.transform.rotation = Quaternion.identity;
             originalDesk.transform.localScale = Vector3.one;
             refs.FirstLamp = BuildFluorescentCeilingRig(
@@ -133,7 +145,7 @@ namespace DoNotDraw.Narrative.Editor
 
             GameObject secondDesk = UnityEngine.Object.Instantiate(originalDesk, refs.SecondRoomSet.transform);
             secondDesk.name = "Desk - Second Room";
-            secondDesk.transform.position = new Vector3(0f, 0f, SecondRoomCenterZ);
+            secondDesk.transform.position = new Vector3(0f, 0f, SecondRoomCenterZ + FirstDeskCenterZ);
             GameObject deckObject = FindChildRecursive(secondDesk.transform, "Card Deck System")?.gameObject;
             if (deckObject == null)
             {
@@ -152,6 +164,16 @@ namespace DoNotDraw.Narrative.Editor
             }
             refs.SecondPresenter = deckObject.GetComponent<CardDeckPresenter>();
             refs.SecondInteraction = deckObject.GetComponent<CardDeckInteraction>();
+
+            BuildDeskWindowAccessBlocker(
+                refs.FirstRoomSet.transform,
+                FirstDeskCenterZ,
+                NorthWallZ);
+            BuildDeskWindowAccessBlocker(
+                secondDesk.transform,
+                SecondRoomCenterZ + FirstDeskCenterZ,
+                SecondNorthWallZ);
+
             refs.SecondLamp = BuildFluorescentCeilingRig(
                 "Second Room Fluorescent Ceiling Rig",
                 refs.SecondRoomSet.transform,
@@ -226,7 +248,10 @@ namespace DoNotDraw.Narrative.Editor
                 new Vector3(WindowX, 1.53f, SecondNorthWallZ - 0.14f),
                 visionMaterial);
             refs.WindowVision.SetActive(false);
-            BuildPreplacedCard(refs.SecondRoomSet.transform, new Vector3(-0.58f, 0.86f, SecondRoomCenterZ + 0.1f), doorMaterial);
+            BuildPreplacedCard(
+                refs.SecondRoomSet.transform,
+                new Vector3(-0.58f, 0.86f, SecondRoomCenterZ + FirstDeskCenterZ + 0.1f),
+                doorMaterial);
 
             GameObject threat = BuildThreatEntity(
                 "Approaching Silhouette",
@@ -303,13 +328,20 @@ namespace DoNotDraw.Narrative.Editor
                 glowRenderer.enabled = false;
             }
 
+            Vector3 openingLookDirection = new Vector3(
+                -OpeningPlayerStartX,
+                0f,
+                FirstDeskCenterZ - OpeningPlayerStartZ).normalized;
             refs.PlayerStartMarker = CreateMarker(
                 refs.FirstRoomSet.transform,
                 "Exact Opening Camera Start",
-                new Vector3(0f, 0.08f, 1.62f),
-                Quaternion.Euler(0f, 180f, 0f));
+                new Vector3(OpeningPlayerStartX, 0.08f, OpeningPlayerStartZ),
+                Quaternion.LookRotation(openingLookDirection, Vector3.up));
             Vector3 secondSpawn = new Vector3(SecondDoorX, 0.08f, SecondRoomCenterZ - 1.74f);
-            Vector3 towardTable = new Vector3(-SecondDoorX, 0f, 1.74f).normalized;
+            Vector3 towardTable = new Vector3(
+                -SecondDoorX,
+                0f,
+                SecondRoomCenterZ + FirstDeskCenterZ - secondSpawn.z).normalized;
             refs.SecondRoomPlayerMarker = CreateMarker(
                 refs.SecondRoomSet.transform,
                 "Second Room Walk-In Camera",
@@ -1052,6 +1084,30 @@ namespace DoNotDraw.Narrative.Editor
             {
                 renderer.enabled = enabled;
             }
+        }
+
+        private static void BuildDeskWindowAccessBlocker(
+            Transform parent,
+            float deskCenterZ,
+            float wallCenterZ)
+        {
+            float deskBackZ = deskCenterZ + DeskDepth * 0.5f;
+            float wallInnerZ = wallCenterZ - WallThickness * 0.5f;
+            float blockerDepth = wallInnerZ - deskBackZ + DeskWindowBlockerOverlap;
+            float blockerCenterZ = (deskBackZ + wallInnerZ) * 0.5f;
+
+            GameObject blocker = new GameObject("Desk Window Access Blocker");
+            blocker.transform.SetParent(parent, true);
+            blocker.transform.SetPositionAndRotation(
+                new Vector3(WindowX, RoomHeight * 0.5f, blockerCenterZ),
+                Quaternion.identity);
+            blocker.transform.localScale = Vector3.one;
+
+            BoxCollider collider = blocker.AddComponent<BoxCollider>();
+            collider.size = new Vector3(
+                DeskWindowBlockerWidth,
+                RoomHeight,
+                blockerDepth);
         }
 
         private static GameObject CreatePrimitive(

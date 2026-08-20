@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: 06_do_not_draw_next_room_card
   m_EditorClassIdentifier: Assembly-CSharp::DoNotDraw.Narrative.CardDefinition
   stableId: final.card.do_not_draw_next_room_card
-  displayName: DO NOT DRAW CARD OF NEXT ROOM.
-  faceText: DO NOT DRAW CARD OF NEXT ROOM.
-  faceTexture: {fileID: 0}
+  displayName: You See
+  faceText: You See
+  faceTexture: {fileID: 2800000, guid: e6180579d5d743c4591a65642bd10f5c, type: 3}
   faceAccentMaterial: {fileID: 2100000, guid: b9160984b09414d40a89c3d4461c8eab, type: 2}
   faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}
   drawSoundOverride: {fileID: 0}

@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: 08_do_not_look_through_window
   m_EditorClassIdentifier: Assembly-CSharp::DoNotDraw.Narrative.CardDefinition
   stableId: final.card.do_not_look_through_window
-  displayName: DO NOT LOOK THROUGH THE WINDOW.
-  faceText: DO NOT LOOK THROUGH THE WINDOW.
+  displayName: Do not Look At The Window
+  faceText: Do not Look At The Window
   faceTexture: {fileID: 2800000, guid: 91090b54250311844b40cb81d66d8da7, type: 3}
   faceAccentMaterial: {fileID: 2100000, guid: b9160984b09414d40a89c3d4461c8eab, type: 2}
   faceTextColor: {r: 0.055, g: 0.035, b: 0.025, a: 1}
