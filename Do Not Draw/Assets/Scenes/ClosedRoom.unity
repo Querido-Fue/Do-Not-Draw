@@ -13818,10 +13818,10 @@ MonoBehaviour:
   openAngle: 102
   partialOpenAngle: 14
   openDuration: 0.72
-  slamDuration: 0.22
+  slamDuration: 0.16
   openSound: {fileID: 8300000, guid: b6d57d1ab483f504eb89ae9bcf682790, type: 3}
   storyOpenSound: {fileID: 8300000, guid: b00cdee014df45447840ce3ed33cbf56, type: 3}
-  slamSound: {fileID: 8300000, guid: d6e387dba3716ea41b1ad1d83ae5dbb2, type: 3}
+  slamSound: {fileID: 8300000, guid: 5c9ee19cfd3444a89dd5920187d190db, type: 3}
   handleTurnSound: {fileID: 8300000, guid: 85531a6f7630cc5429e8778ffa0f7b6a, type: 3}
   storyHandleTurnSound: {fileID: 8300000, guid: b918a418f743db241bf6c48ccdcecca6, type: 3}
   volume: 0.75
@@ -16509,7 +16509,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 21300000, guid: 69e9b51967c659c4c893d4951fc8c0af, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 8c6c5274ad83a094c91a0e29cc5574fa, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -21431,10 +21431,10 @@ MonoBehaviour:
   openAngle: -102
   partialOpenAngle: -14
   openDuration: 0.72
-  slamDuration: 0.22
+  slamDuration: 0.16
   openSound: {fileID: 8300000, guid: b6d57d1ab483f504eb89ae9bcf682790, type: 3}
   storyOpenSound: {fileID: 8300000, guid: b00cdee014df45447840ce3ed33cbf56, type: 3}
-  slamSound: {fileID: 8300000, guid: d6e387dba3716ea41b1ad1d83ae5dbb2, type: 3}
+  slamSound: {fileID: 8300000, guid: 5c9ee19cfd3444a89dd5920187d190db, type: 3}
   handleTurnSound: {fileID: 8300000, guid: 85531a6f7630cc5429e8778ffa0f7b6a, type: 3}
   storyHandleTurnSound: {fileID: 8300000, guid: b918a418f743db241bf6c48ccdcecca6, type: 3}
   volume: 0.75

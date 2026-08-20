@@ -924,7 +924,8 @@ namespace DoNotDraw.Narrative.Editor
                 DoorHandle = LoadRequiredAudioClip("Assets/Sounds/15_door_handle_turn.wav"),
                 DoorCreak = LoadRequiredAudioClip("Assets/Sounds/16a_hinge_creak_door1.wav"),
                 StoryDoorCreak = LoadRequiredAudioClip("Assets/Sounds/16b_hinge_creak_door1_selfopen_lowpitch.wav"),
-                DoorSlam = LoadRequiredAudioClip("Assets/Sounds/Horror/DoorSlam.wav"),
+                DoorSlam = LoadRequiredAudioClip(
+                    "Assets/Sounds/Horror/freesound_community-door-slam-angrily-86963.mp3"),
                 Wind = LoadRequiredAudioClip("Assets/Sounds/17_faint_wind_loop.wav"),
                 SilhouetteApproach = LoadRequiredAudioClip("Assets/Sounds/18_silhouette_approach_loop.wav"),
                 StoryHandle = LoadRequiredAudioClip("Assets/Sounds/19_door_handle_selfturning_crescendo.wav"),
@@ -1588,6 +1589,7 @@ namespace DoNotDraw.Narrative.Editor
             SerializedObject serialized = new SerializedObject(door);
             Set(serialized, "openSound", audio.DoorCreak);
             Set(serialized, "storyOpenSound", audio.StoryDoorCreak);
+            Set(serialized, "slamDuration", 0.16f);
             Set(serialized, "slamSound", audio.DoorSlam);
             Set(serialized, "handleTurnSound", audio.DoorHandle);
             Set(serialized, "storyHandleTurnSound", audio.StoryHandle);
