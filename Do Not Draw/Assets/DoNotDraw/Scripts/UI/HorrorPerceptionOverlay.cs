@@ -28,10 +28,8 @@ namespace DoNotDraw.UI
         [SerializeField] private AudioSource growlSource;
         [SerializeField] private AudioSource riserSource;
         [SerializeField] private AudioSource heartbeatSource;
-        [SerializeField] private AudioSource glitchSource;
 
         [Header("Audio Clips")]
-        [SerializeField] private AudioClip faceGlitchClip;
         [SerializeField] private AudioClip multiPresenceClip;
         [SerializeField] private AudioClip growlClip;
         [SerializeField] private AudioClip climaxRiserClip;
@@ -167,7 +165,6 @@ namespace DoNotDraw.UI
             fadeStartGrowlVolume = growlLogicalVolume;
             fadeStartHeartbeatVolume = heartbeatLogicalVolume;
             riserSource?.Stop();
-            glitchSource?.Stop();
         }
 
         private void UpdatePeripheral(float now, float deltaTime)
@@ -218,7 +215,6 @@ namespace DoNotDraw.UI
             faceVisibleFor = RandomRange(peripheralVisibleDuration);
             faceShownAt = now;
             faceVisible = true;
-            PlayFaceGlitch(Mathf.Lerp(0.38f, 0.53f, escalation));
         }
 
         private void UpdateClimax(float now)
@@ -302,7 +298,6 @@ namespace DoNotDraw.UI
             faceShownAt = now;
             faceVisible = true;
             climaxFaceIndex++;
-            PlayFaceGlitch(Mathf.Lerp(0.56f, 0.96f, progress));
         }
 
         private void UpdateFaceEnvelope(float now)
@@ -331,7 +326,6 @@ namespace DoNotDraw.UI
             growlSource?.Stop();
             heartbeatSource?.Stop();
             riserSource?.Stop();
-            glitchSource?.Stop();
             ClimaxHardCut?.Invoke();
         }
 
@@ -351,18 +345,6 @@ namespace DoNotDraw.UI
             {
                 StopImmediate();
             }
-        }
-
-        private void PlayFaceGlitch(float volume)
-        {
-            if (glitchSource == null || faceGlitchClip == null)
-            {
-                return;
-            }
-
-            glitchSource.panStereo = Mathf.Clamp(faceCenter.x * 2f - 1f, -0.9f, 0.9f);
-            glitchSource.pitch = UnityEngine.Random.Range(0.92f, 1.08f);
-            glitchSource.PlayOneShot(faceGlitchClip, Mathf.Clamp01(volume) * SfxVolume.Scale);
         }
 
         private void ApplyMaterialState()
@@ -433,11 +415,6 @@ namespace DoNotDraw.UI
             ConfigureAudioSource(growlSource, true);
             ConfigureAudioSource(riserSource, false);
             ConfigureAudioSource(heartbeatSource, true);
-            ConfigureAudioSource(glitchSource, false);
-            if (glitchSource != null)
-            {
-                glitchSource.volume = 1f;
-            }
         }
 
         private static void ConfigureAudioSource(AudioSource source, bool loop)
@@ -490,7 +467,6 @@ namespace DoNotDraw.UI
             growlSource?.Stop();
             riserSource?.Stop();
             heartbeatSource?.Stop();
-            glitchSource?.Stop();
             ApplyMaterialState();
             ApplyLoopVolumes();
         }

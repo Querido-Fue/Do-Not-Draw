@@ -75,6 +75,10 @@ namespace DoNotDraw.World
         [SerializeField] private Behaviour movementController;
         [SerializeField] private Transform playerStartMarker;
 
+        [Header("Ending Top View")]
+        [SerializeField] private Camera endingTopViewCamera;
+        [SerializeField, Min(0.1f)] private float endingTopViewZoomSize = 1.45f;
+
         [Header("Card Stations")]
         [SerializeField] private CardDeckPresenter primaryPresenter;
         [SerializeField] private CardDeckInteraction primaryInteraction;
@@ -193,6 +197,10 @@ namespace DoNotDraw.World
             new List<CeilingEmissionBinding>();
 
         private RandomFootstepPlayer playerFootsteps;
+        private AudioListener playerAudioListener;
+        private AudioListener endingTopViewAudioListener;
+        private Renderer[] playerVisualRenderers = Array.Empty<Renderer>();
+        private bool[] initialPlayerVisualRendererStates = Array.Empty<bool>();
         private float initialLampIntensity;
         private float initialSecondLampIntensity;
         private float primaryLightBase;
@@ -205,6 +213,8 @@ namespace DoNotDraw.World
         private float transitionLogicalVolume;
         private float windLogicalVolume;
         private float initialCameraFov;
+        private float initialEndingTopViewFov;
+        private float initialEndingTopViewOrthographicSize;
         private float initialLampColorTemperature;
         private float initialSecondLampColorTemperature;
         private Color initialLampColor;
@@ -297,6 +307,13 @@ namespace DoNotDraw.World
             playerFootsteps = playerRoot != null
                 ? playerRoot.GetComponentInChildren<RandomFootstepPlayer>(true)
                 : FindAnyObjectByType<RandomFootstepPlayer>(FindObjectsInactive.Include);
+            playerAudioListener = playerCamera != null
+                ? playerCamera.GetComponent<AudioListener>()
+                : null;
+            endingTopViewAudioListener = endingTopViewCamera != null
+                ? endingTopViewCamera.GetComponent<AudioListener>()
+                : null;
+            CachePlayerVisualState();
 
             float sourceLampIntensity = lampLight != null ? lampLight.intensity : 1f;
             float sourceSecondLampIntensity = secondRoomLampLight != null
@@ -332,6 +349,12 @@ namespace DoNotDraw.World
             ambientLogicalVolume = initialAmbientVolume;
             clockLogicalVolume = clockSource != null ? clockSource.volume : 0f;
             initialCameraFov = playerCamera != null ? playerCamera.fieldOfView : 60f;
+            initialEndingTopViewFov = endingTopViewCamera != null
+                ? endingTopViewCamera.fieldOfView
+                : initialCameraFov;
+            initialEndingTopViewOrthographicSize = endingTopViewCamera != null
+                ? endingTopViewCamera.orthographicSize
+                : 3.05f;
             baseViewLocalPosition = playerView != null ? playerView.localPosition : Vector3.zero;
             initialViewLocalRotation = playerView != null ? playerView.localRotation : Quaternion.identity;
             threatBaseScale = threatSilhouette != null ? threatSilhouette.localScale : Vector3.one;
@@ -413,6 +436,8 @@ namespace DoNotDraw.World
             {
                 playerCamera.fieldOfView = initialCameraFov;
             }
+            SetEndingTopViewActive(false);
+            SetPlayerVisualsVisible(true);
             RestoreAmbientLighting();
             SetCeilingEmissionMultiplier(1f);
             ResetHorrorPerceptionState();
@@ -539,6 +564,8 @@ namespace DoNotDraw.World
             enterRuleRevealCount = 0;
             pendingCardDipMinimum = 0.84f;
             ResetHorrorPerceptionState();
+            SetEndingTopViewActive(false);
+            SetPlayerVisualsVisible(true);
             perceptionOverlay?.StopAllEffects(0f);
             RestoreAmbientLighting();
             SetCeilingEmissionMultiplier(1f);
@@ -1909,6 +1936,8 @@ namespace DoNotDraw.World
             {
                 return;
             }
+            SetPlayerVisualsVisible(false);
+            SetEndingTopViewActive(true);
             CancelExitPressure(true);
             endingZone?.SetTriggerEnabled(false);
             SetFact(leftRoomFact, true);
@@ -1954,6 +1983,8 @@ namespace DoNotDraw.World
             {
                 playerFootsteps.enabled = false;
             }
+            SetPlayerVisualsVisible(false);
+            SetEndingTopViewActive(true);
             if (playerRoot != null && playerStartMarker != null)
             {
                 playerRoot.SetPositionAndRotation(playerStartMarker.position, playerStartMarker.rotation);
@@ -2018,16 +2049,35 @@ namespace DoNotDraw.World
 
         private IEnumerator EndingZoomRoutine()
         {
-            float startFov = playerCamera != null ? playerCamera.fieldOfView : initialCameraFov;
+            Camera endingCamera = endingTopViewCamera != null && endingTopViewCamera.enabled
+                ? endingTopViewCamera
+                : playerCamera;
+            float startFov = endingCamera != null ? endingCamera.fieldOfView : initialCameraFov;
+            float startOrthographicSize = endingCamera != null
+                ? endingCamera.orthographicSize
+                : initialEndingTopViewOrthographicSize;
+            float targetOrthographicSize = Mathf.Min(
+                startOrthographicSize,
+                endingTopViewZoomSize);
             float elapsed = 0f;
             while (elapsed < EndingDurationSeconds)
             {
                 elapsed += Time.unscaledDeltaTime;
                 float t = Mathf.Clamp01(elapsed / EndingDurationSeconds);
                 t = t * t * (3f - 2f * t);
-                if (playerCamera != null)
+                if (endingCamera != null)
                 {
-                    playerCamera.fieldOfView = Mathf.Lerp(startFov, 24f, t);
+                    if (endingCamera.orthographic)
+                    {
+                        endingCamera.orthographicSize = Mathf.Lerp(
+                            startOrthographicSize,
+                            targetOrthographicSize,
+                            t);
+                    }
+                    else
+                    {
+                        endingCamera.fieldOfView = Mathf.Lerp(startFov, 24f, t);
+                    }
                 }
 
                 if (screenFade != null)
@@ -2049,6 +2099,80 @@ namespace DoNotDraw.World
             }
             endingRoutine = null;
             QuitGame();
+        }
+
+        private void CachePlayerVisualState()
+        {
+            playerVisualRenderers = playerRoot != null
+                ? playerRoot.GetComponentsInChildren<Renderer>(true)
+                : Array.Empty<Renderer>();
+            initialPlayerVisualRendererStates = new bool[playerVisualRenderers.Length];
+            for (int index = 0; index < playerVisualRenderers.Length; index++)
+            {
+                Renderer playerRenderer = playerVisualRenderers[index];
+                initialPlayerVisualRendererStates[index] = playerRenderer != null && playerRenderer.enabled;
+            }
+        }
+
+        private void SetPlayerVisualsVisible(bool visible)
+        {
+            for (int index = 0; index < playerVisualRenderers.Length; index++)
+            {
+                Renderer playerRenderer = playerVisualRenderers[index];
+                if (playerRenderer == null)
+                {
+                    continue;
+                }
+
+                playerRenderer.enabled = visible && initialPlayerVisualRendererStates[index];
+            }
+        }
+
+        private void SetEndingTopViewActive(bool active)
+        {
+            if (active)
+            {
+                if (endingTopViewCamera == null)
+                {
+                    return;
+                }
+                if (playerAudioListener != null)
+                {
+                    playerAudioListener.enabled = false;
+                }
+                if (playerCamera != null)
+                {
+                    playerCamera.enabled = false;
+                }
+                endingTopViewCamera.gameObject.SetActive(true);
+                endingTopViewCamera.enabled = true;
+                if (endingTopViewAudioListener != null)
+                {
+                    endingTopViewAudioListener.enabled = true;
+                }
+                return;
+            }
+
+            if (endingTopViewAudioListener != null)
+            {
+                endingTopViewAudioListener.enabled = false;
+            }
+            if (endingTopViewCamera != null)
+            {
+                endingTopViewCamera.enabled = false;
+                endingTopViewCamera.fieldOfView = initialEndingTopViewFov;
+                endingTopViewCamera.orthographicSize = initialEndingTopViewOrthographicSize;
+                endingTopViewCamera.gameObject.SetActive(false);
+            }
+            if (playerCamera != null)
+            {
+                playerCamera.enabled = true;
+                playerCamera.fieldOfView = initialCameraFov;
+            }
+            if (playerAudioListener != null)
+            {
+                playerAudioListener.enabled = true;
+            }
         }
 
         private static void QuitGame()
@@ -2457,6 +2581,7 @@ namespace DoNotDraw.World
             focusedLookDot = Mathf.Clamp(focusedLookDot, 0.5f, 0.999f);
             windowGazeDuration = Mathf.Max(0.1f, windowGazeDuration);
             rearImpactAngle = Mathf.Clamp(rearImpactAngle, 90f, 179f);
+            endingTopViewZoomSize = Mathf.Max(0.1f, endingTopViewZoomSize);
         }
     }
 }
